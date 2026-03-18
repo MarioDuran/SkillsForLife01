@@ -1,56 +1,68 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Skull, 
-  Wind, 
-  Sparkles, 
-  Navigation, 
-  Hand, 
-  Play, 
-  Square,
-  AlertCircle,
-  Trophy,
-  RefreshCw,
-  Code,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  Sword,
-  Volume2
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>El Mundo de Wumpus</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-// --- CONFIGURACIÓN DE COLORES DE LA PALETA ---
-const COLORS = {
-  bgMain: '#1B1B1E',
-  panel: '#464849',
-  dark: '#27272B',
-  lightText: '#CBC9C2',
-  accentWarm: '#F3DA4B',
-  accentStrong: '#F9E40B',
-  accentCold: '#2D473B',
-  olive: '#606C43',
-  softOlive: '#898B4B'
-};
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+      "lucide-react": "https://esm.sh/lucide-react@0.292.0"
+    }
+  }
+  </script>
+</head>
+<body class="bg-[#1B1B1E]">
+  
+  <div id="root"></div>
 
-// --- CONSTANTES DEL JUEGO ---
-const SIZE = 5;
-const DIRS = [
-  { dx: 0, dy: 1, label: 'Norte', rot: -90 }, // 0
-  { dx: 1, dy: 0, label: 'Este', rot: 0 },    // 1
-  { dx: 0, dy: -1, label: 'Sur', rot: 90 },   // 2
-  { dx: -1, dy: 0, label: 'Oeste', rot: 180 } // 3
-];
+  <script type="text/babel" data-type="module">
+    import React, { useState, useEffect, useRef } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { 
+      Skull, Wind, Sparkles, Navigation, Hand, Play, Square,
+      AlertCircle, Trophy, RefreshCw, Code, ArrowUp, ArrowDown,
+      ArrowLeft, ArrowRight, Sword, Volume2
+    } from 'lucide-react';
 
-const LEVELS = [
-  // Nivel 1 más fácil: Zona inicial segura, un par de obstáculos alejados.
-  { wumpus: {x: 0, y: 4}, gold: {x: 2, y: 2}, pits: [{x: 4, y: 1}, {x: 2, y: 4}] },
-  { wumpus: {x: 1, y: 2}, gold: {x: 4, y: 0}, pits: [{x: 2, y: 1}, {x: 2, y: 3}, {x: 3, y: 2}, {x: 4, y: 4}] },
-  { wumpus: {x: 3, y: 3}, gold: {x: 0, y: 4}, pits: [{x: 1, y: 1}, {x: 2, y: 2}, {x: 3, y: 1}, {x: 1, y: 3}, {x: 4, y: 0}] },
-  { wumpus: {x: 0, y: 3}, gold: {x: 4, y: 4}, pits: [{x: 0, y: 1}, {x: 1, y: 2}, {x: 2, y: 3}, {x: 3, y: 4}, {x: 4, y: 1}, {x: 2, y: 0}] },
-  { wumpus: {x: 2, y: 2}, gold: {x: 4, y: 2}, pits: [{x: 1, y: 0}, {x: 1, y: 4}, {x: 3, y: 1}, {x: 3, y: 3}, {x: 0, y: 4}, {x: 4, y: 0}] }
-];
+    // --- CONFIGURACIÓN DE COLORES DE LA PALETA ---
+    const COLORS = {
+      bgMain: '#1B1B1E',
+      panel: '#464849',
+      dark: '#27272B',
+      lightText: '#CBC9C2',
+      accentWarm: '#F3DA4B',
+      accentStrong: '#F9E40B',
+      accentCold: '#2D473B',
+      olive: '#606C43',
+      softOlive: '#898B4B'
+    };
 
-const DEFAULT_PYTHON_CODE = `def decidir_accion(brisa, hedor, brillo, choque, grito):
+    // --- CONSTANTES DEL JUEGO ---
+    const SIZE = 5;
+    const DIRS = [
+      { dx: 0, dy: 1, label: 'Norte', rot: -90 }, // 0
+      { dx: 1, dy: 0, label: 'Este', rot: 0 },    // 1
+      { dx: 0, dy: -1, label: 'Sur', rot: 90 },   // 2
+      { dx: -1, dy: 0, label: 'Oeste', rot: 180 } // 3
+    ];
+
+    const LEVELS = [
+      { wumpus: {x: 0, y: 4}, gold: {x: 2, y: 2}, pits: [{x: 4, y: 1}, {x: 2, y: 4}] },
+      { wumpus: {x: 1, y: 2}, gold: {x: 4, y: 0}, pits: [{x: 2, y: 1}, {x: 2, y: 3}, {x: 3, y: 2}, {x: 4, y: 4}] },
+      { wumpus: {x: 3, y: 3}, gold: {x: 0, y: 4}, pits: [{x: 1, y: 1}, {x: 2, y: 2}, {x: 3, y: 1}, {x: 1, y: 3}, {x: 4, y: 0}] },
+      { wumpus: {x: 0, y: 3}, gold: {x: 4, y: 4}, pits: [{x: 0, y: 1}, {x: 1, y: 2}, {x: 2, y: 3}, {x: 3, y: 4}, {x: 4, y: 1}, {x: 2, y: 0}] },
+      { wumpus: {x: 2, y: 2}, gold: {x: 4, y: 2}, pits: [{x: 1, y: 0}, {x: 1, y: 4}, {x: 3, y: 1}, {x: 3, y: 3}, {x: 0, y: 4}, {x: 4, y: 0}] }
+    ];
+
+    const DEFAULT_PYTHON_CODE = `def decidir_accion(brisa, hedor, brillo, choque, grito):
     if brillo:
         return "AGARRAR"
         
@@ -60,592 +72,443 @@ const DEFAULT_PYTHON_CODE = `def decidir_accion(brisa, hedor, brillo, choque, gr
     return random.choice(["AVANZAR", "IZQUIERDA", "DERECHA"])
 `;
 
-export default function WumpusWorld() {
-  // --- ESTADOS ---
-  const [board, setBoard] = useState([]);
-  const [agent, setAgent] = useState({ x: 0, y: 0, dir: 1, hasGold: false, hasArrow: true });
-  const [status, setStatus] = useState('playing'); // playing, won, died
-  const [logs, setLogs] = useState([]);
-  const [mode, setMode] = useState('manual'); // manual, code
-  const [currentLevel, setCurrentLevel] = useState(0);
-  const [perceptions, setPerceptions] = useState({ breeze: false, stench: false, glitter: false, bump: false, scream: false });
-  
-  // Pyodide States
-  const [pyodide, setPyodide] = useState(null);
-  const [pyCode, setPyCode] = useState(DEFAULT_PYTHON_CODE);
-  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
-  const [isLoadingPy, setIsLoadingPy] = useState(true);
-
-  // --- INICIALIZACIÓN ---
-  const initGame = (levelIdx = currentLevel) => {
-    const config = LEVELS[levelIdx];
-    let newBoard = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null).map(() => ({
-      hasWumpus: false, hasPit: false, hasGold: false,
-      isVisited: false, isBreezy: false, isStinky: false
-    })));
-
-    // Configurar nivel
-    newBoard[config.wumpus.y][config.wumpus.x].hasWumpus = true;
-    newBoard[config.gold.y][config.gold.x].hasGold = true;
-    config.pits.forEach(p => newBoard[p.y][p.x].hasPit = true);
-
-    // Calcular olores y brisas
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        const neighbors = [
-          { nx: x, ny: y + 1 }, { nx: x + 1, ny: y },
-          { nx: x, ny: y - 1 }, { nx: x - 1, ny: y }
-        ];
-        neighbors.forEach(({ nx, ny }) => {
-          if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
-            if (newBoard[ny][nx].hasWumpus) newBoard[y][x].isStinky = true;
-            if (newBoard[ny][nx].hasPit) newBoard[y][x].isBreezy = true;
-          }
-        });
-      }
-    }
-
-    newBoard[0][0].isVisited = true;
-    setBoard(newBoard);
-    setCurrentLevel(levelIdx);
-    setAgent({ x: 0, y: 0, dir: 1, hasGold: false, hasArrow: true });
-    setStatus('playing');
-    setLogs([`Nivel ${levelIdx + 1} iniciado. Te encuentras en (0,0).`]);
-    setIsAutoPlaying(false);
-    updatePerceptions(0, 0, newBoard, false, false);
-  };
-
-  // --- CONTROLES DE TECLADO ---
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (mode !== 'manual' || status !== 'playing') return;
+    // Quité el "export default" porque estamos en un solo archivo
+    function WumpusWorld() {
+      // --- ESTADOS ---
+      const [board, setBoard] = useState([]);
+      const [agent, setAgent] = useState({ x: 0, y: 0, dir: 1, hasGold: false, hasArrow: true });
+      const [status, setStatus] = useState('playing'); // playing, won, died
+      const [logs, setLogs] = useState([]);
+      const [mode, setMode] = useState('manual'); // manual, code
+      const [currentLevel, setCurrentLevel] = useState(0);
+      const [perceptions, setPerceptions] = useState({ breeze: false, stench: false, glitter: false, bump: false, scream: false });
       
-      let handled = true;
-      switch(e.key) {
-        case 'ArrowUp': handleAction('MOVER_HACIA', 0); break;
-        case 'ArrowRight': handleAction('MOVER_HACIA', 1); break;
-        case 'ArrowDown': handleAction('MOVER_HACIA', 2); break;
-        case 'ArrowLeft': handleAction('MOVER_HACIA', 3); break;
-        case 'a': case 'A': handleAction('ATACAR'); break;
-        case 's': case 'S': handleAction('AGARRAR'); break;
-        default: handled = false;
-      }
-      
-      // Prevenir el scroll de la página con las flechas si estamos jugando
-      if (handled) e.preventDefault();
-    };
+      // Pyodide States
+      const [pyodide, setPyodide] = useState(null);
+      const [pyCode, setPyCode] = useState(DEFAULT_PYTHON_CODE);
+      const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+      const [isLoadingPy, setIsLoadingPy] = useState(true);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mode, status, agent, board, currentLevel]); // Dependencias para tener estado fresco
+      // --- INICIALIZACIÓN ---
+      const initGame = (levelIdx = currentLevel) => {
+        const config = LEVELS[levelIdx];
+        let newBoard = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null).map(() => ({
+          hasWumpus: false, hasPit: false, hasGold: false,
+          isVisited: false, isBreezy: false, isStinky: false
+        })));
 
-  useEffect(() => {
-    initGame(0);
-    // Cargar Pyodide dinámicamente
-    const loadPy = async () => {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js';
-      script.onload = async () => {
-        const py = await window.loadPyodide();
-        setPyodide(py);
-        setIsLoadingPy(false);
-      };
-      document.body.appendChild(script);
-    };
-    loadPy();
-  }, []);
+        // Configurar nivel
+        newBoard[config.wumpus.y][config.wumpus.x].hasWumpus = true;
+        newBoard[config.gold.y][config.gold.x].hasGold = true;
+        config.pits.forEach(p => newBoard[p.y][p.x].hasPit = true);
 
-  // --- LÓGICA DEL JUEGO ---
-  const addLog = (msg) => setLogs(prev => [msg, ...prev].slice(0, 50));
-
-  const updatePerceptions = (x, y, currentBoard, bumped, screamed) => {
-    setPerceptions({
-      breeze: currentBoard[y][x].isBreezy,
-      stench: currentBoard[y][x].isStinky,
-      glitter: currentBoard[y][x].hasGold,
-      bump: bumped,
-      scream: screamed
-    });
-  };
-
-  const handleAction = (actionStr, extraParam = null) => {
-    if (status !== 'playing') return;
-
-    let { x, y, dir, hasGold, hasArrow } = agent;
-    let newBoard = [...board];
-    let bumped = false;
-    let screamed = false;
-    let newStatus = 'playing';
-
-    // Manejador para movimiento directo
-    if (actionStr === 'MOVER_HACIA') {
-      dir = extraParam;
-      actionStr = 'AVANZAR'; // Ejecutar el avance tras girar
-    }
-
-    switch (actionStr) {
-      case 'AVANZAR':
-        const nx = x + DIRS[dir].dx;
-        const ny = y + DIRS[dir].dy;
-        if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
-          x = nx;
-          y = ny;
-          newBoard[y][x].isVisited = true;
-          addLog(`Avanzaste hacia el ${DIRS[dir].label} a (${x},${y}).`);
-          
-          if (newBoard[y][x].hasWumpus) {
-            newStatus = 'died';
-            addLog('¡Oh no! Has sido devorado por el Wumpus.');
-          } else if (newBoard[y][x].hasPit) {
-            newStatus = 'died';
-            addLog('¡Ahhh! Caíste en un pozo sin fondo.');
-          } else if (x === 0 && y === 0 && hasGold) {
-            newStatus = 'won';
-            addLog('¡VICTORIA! Escapaste con el oro.');
-          }
-        } else {
-          bumped = true;
-          addLog('¡Ouch! Chocaste con la pared.');
-        }
-        break;
-      case 'IZQUIERDA':
-        dir = (dir + 3) % 4;
-        addLog('Giraste a la izquierda.');
-        break;
-      case 'DERECHA':
-        dir = (dir + 1) % 4;
-        addLog('Giraste a la derecha.');
-        break;
-      case 'AGARRAR':
-        if (newBoard[y][x].hasGold) {
-          hasGold = true;
-          newBoard[y][x].hasGold = false;
-          addLog('¡Agarraste el oro! (S) Ahora regresa a (0,0).');
-        } else {
-          addLog('Intentaste agarrar algo, pero no hay nada aquí.');
-        }
-        break;
-      case 'ATACAR':
-        if (hasArrow) {
-          hasArrow = false;
-          addLog('¡Diste un poderoso espadazo mágico! (A)');
-          // Rayo mágico que viaja en la dirección que miras
-          let tx = x + DIRS[dir].dx;
-          let ty = y + DIRS[dir].dy;
-          let hit = false;
-          while (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE) {
-            if (newBoard[ty][tx].hasWumpus) {
-              hit = true;
-              newBoard[ty][tx].hasWumpus = false;
-              // Remove stenches
-              for (let ry = 0; ry < SIZE; ry++) {
-                for (let rx = 0; rx < SIZE; rx++) {
-                  newBoard[ry][rx].isStinky = false;
-                }
+        // Calcular olores y brisas
+        for (let y = 0; y < SIZE; y++) {
+          for (let x = 0; x < SIZE; x++) {
+            const neighbors = [
+              { nx: x, ny: y + 1 }, { nx: x + 1, ny: y },
+              { nx: x, ny: y - 1 }, { nx: x - 1, ny: y }
+            ];
+            neighbors.forEach(({ nx, ny }) => {
+              if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
+                if (newBoard[ny][nx].hasWumpus) newBoard[y][x].isStinky = true;
+                if (newBoard[ny][nx].hasPit) newBoard[y][x].isBreezy = true;
               }
-              break;
-            }
-            tx += DIRS[dir].dx;
-            ty += DIRS[dir].dy;
+            });
           }
-          if (hit) {
-            screamed = true;
-            addLog('¡Escuchaste un grito aterrador! Tu espada destruyó al Wumpus.');
-          } else {
-            addLog('Silencio... el rayo de tu espada no golpeó nada.');
-          }
-        } else {
-          addLog('Tu espada se ha quedado sin poder mágico.');
         }
-        break;
-      default:
-        addLog(`Acción desconocida: ${actionStr}`);
-    }
 
-    setAgent({ x, y, dir, hasGold, hasArrow });
-    setBoard(newBoard);
-    setStatus(newStatus);
-    updatePerceptions(x, y, newBoard, bumped, screamed);
-
-    if (newStatus !== 'playing') {
-      setIsAutoPlaying(false);
-    }
-  };
-
-  // --- MODO CÓDIGO (PYODIDE) ---
-  const executePythonStep = async () => {
-    if (!pyodide || status !== 'playing') return;
-    
-    try {
-      // 1. Ejecutar el código del usuario para registrar la función
-      // Inyectamos 'import random' por detrás para que el código por defecto funcione sin mostrarlo
-      await pyodide.runPythonAsync(`import random\n${pyCode}`);
-      
-      // 2. Llamar a la función decidir_accion
-      const callStr = `decidir_accion(${perceptions.breeze ? 'True' : 'False'}, ${perceptions.stench ? 'True' : 'False'}, ${perceptions.glitter ? 'True' : 'False'}, ${perceptions.bump ? 'True' : 'False'}, ${perceptions.scream ? 'True' : 'False'})`;
-      
-      const action = await pyodide.runPythonAsync(callStr);
-      if (typeof action === 'string') {
-        handleAction(action.toUpperCase());
-      } else {
-        addLog('Error: El script de Python no devolvió un string válido.');
+        newBoard[0][0].isVisited = true;
+        setBoard(newBoard);
+        setCurrentLevel(levelIdx);
+        setAgent({ x: 0, y: 0, dir: 1, hasGold: false, hasArrow: true });
+        setStatus('playing');
+        setLogs([`Nivel ${levelIdx + 1} iniciado. Te encuentras en (0,0).`]);
         setIsAutoPlaying(false);
-      }
-    } catch (err) {
-      addLog(`Error en Python: ${err.message.split('\n').pop()}`);
-      setIsAutoPlaying(false);
-    }
-  };
+        updatePerceptions(0, 0, newBoard, false, false);
+      };
 
-  useEffect(() => {
-    let timer;
-    if (isAutoPlaying && status === 'playing') {
-      timer = setTimeout(() => {
-        executePythonStep();
-      }, 600); // 600ms per step
-    }
-    return () => clearTimeout(timer);
-  }, [isAutoPlaying, agent, status]); // Re-run when agent state changes so it takes the next step
-
-
-  // --- RENDERIZADO ---
-  return (
-    <div style={{ backgroundColor: COLORS.bgMain, color: COLORS.lightText }} className="min-h-screen font-sans p-6 selection:bg-[#F3DA4B] selection:text-[#1B1B1E]">
-      
-      {/* HEADER */}
-      <header className="max-w-6xl mx-auto flex items-center justify-between mb-8 border-b border-[#464849] pb-4">
-        <div className="flex items-center gap-3">
-          <Skull size={32} style={{ color: COLORS.accentStrong }} />
-          <h1 style={{ color: COLORS.accentWarm }} className="text-3xl font-bold tracking-wider">
-            EL MUNDO DE WUMPUS - NIVEL {currentLevel + 1}
-          </h1>
-        </div>
-        <div className="flex gap-2">
-          {currentLevel > 0 && (
-            <button 
-              onClick={() => initGame(currentLevel - 1)}
-              style={{ backgroundColor: COLORS.panel }} 
-              className="px-3 py-2 rounded-lg hover:bg-[#606C43] transition-colors font-semibold"
-              title="Nivel Anterior"
-            >
-              &lt;
-            </button>
-          )}
-          <button 
-            onClick={() => initGame(currentLevel)}
-            style={{ backgroundColor: COLORS.panel }} 
-            className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-[#606C43] transition-colors font-semibold"
-          >
-            <RefreshCw size={18} />
-            Reiniciar Nivel
-          </button>
-          {currentLevel < LEVELS.length - 1 && (
-            <button 
-              onClick={() => initGame(currentLevel + 1)}
-              style={{ backgroundColor: COLORS.panel }} 
-              className="px-3 py-2 rounded-lg hover:bg-[#606C43] transition-colors font-semibold"
-              title="Siguiente Nivel"
-            >
-              &gt;
-            </button>
-          )}
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* COLUMNA IZQUIERDA: TABLERO */}
-        <section className="lg:col-span-7 flex flex-col gap-4">
-          <div style={{ backgroundColor: COLORS.panel }} className="p-6 rounded-2xl shadow-2xl relative">
-            
-            {/* Superposiciones de estado */}
-            {status !== 'playing' && (
-              <div className="absolute inset-0 z-10 bg-[#1B1B1E]/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center">
-                {status === 'won' ? (
-                  <>
-                    <Trophy size={64} style={{ color: COLORS.accentStrong }} className="mb-4 animate-bounce" />
-                    <h2 style={{ color: COLORS.accentWarm }} className="text-3xl font-bold">¡HAS ESCAPADO!</h2>
-                    {currentLevel < LEVELS.length - 1 ? (
-                      <button 
-                        onClick={() => initGame(currentLevel + 1)}
-                        style={{ backgroundColor: COLORS.accentCold }} 
-                        className="mt-6 px-6 py-3 rounded-lg hover:bg-[#606C43] transition-colors text-white font-bold"
-                      >
-                        Siguiente Nivel
-                      </button>
-                    ) : (
-                      <div className="mt-4 text-center">
-                        <p className="text-xl font-bold text-green-400 mb-4">¡JUEGO COMPLETADO!</p>
-                        <button 
-                          onClick={() => initGame(0)}
-                          style={{ backgroundColor: COLORS.accentCold }} 
-                          className="px-6 py-3 rounded-lg hover:bg-[#606C43] transition-colors text-white font-bold"
-                        >
-                          Jugar de Nuevo
-                        </button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Skull size={64} className="text-red-500 mb-4 animate-pulse" />
-                    <h2 className="text-red-400 text-3xl font-bold">HAS MUERTO</h2>
-                    <button 
-                      onClick={() => initGame(currentLevel)}
-                      style={{ backgroundColor: COLORS.accentCold }} 
-                      className="mt-6 px-6 py-3 rounded-lg hover:bg-[#606C43] transition-colors text-white font-bold"
-                    >
-                      Reintentar Nivel
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-
-            <div className="grid grid-rows-5 gap-2 aspect-square">
-              {/* Renderizar de arriba hacia abajo (y=4 a y=0) */}
-              {[4, 3, 2, 1, 0].map(y => (
-                <div key={`row-${y}`} className="grid grid-cols-5 gap-2">
-                  {[0, 1, 2, 3, 4].map(x => {
-                    const cell = board[y] ? board[y][x] : null;
-                    if (!cell) return null;
-                    
-                    const isAgentHere = agent.x === x && agent.y === y;
-                    const showContent = cell.isVisited || status !== 'playing';
-
-                    return (
-                      <div 
-                        key={`${x}-${y}`} 
-                        style={{ backgroundColor: cell.isVisited ? COLORS.panel : COLORS.dark }}
-                        className={`
-                          relative rounded-xl border-2 flex items-center justify-center overflow-hidden
-                          ${isAgentHere ? `border-[${COLORS.accentStrong}]` : 'border-transparent'}
-                          ${!cell.isVisited ? 'opacity-80' : 'shadow-inner'}
-                        `}
-                      >
-                        {/* Indicadores de casilla (sólo si visitada o fin del juego) */}
-                        {showContent && (
-                          <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-1 opacity-40">
-                            {cell.hasPit && <div className="w-full h-full bg-black/50 absolute" />}
-                            {cell.hasWumpus && <Skull size={32} className="text-red-500 z-0" />}
-                            {cell.hasGold && <Sparkles size={24} style={{ color: COLORS.accentStrong }} className="z-0 animate-pulse" />}
-                          </div>
-                        )}
-
-                        {/* El Agente (Caballero) */}
-                        {isAgentHere && (
-                          <div className="absolute inset-0 z-10 flex items-center justify-center">
-                             <HeroKnight dir={agent.dir} />
-                          </div>
-                        )}
-
-                        {/* Coordenadas tenues */}
-                        <span className="absolute bottom-1 right-1 text-[10px] opacity-30">
-                          {x},{y}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* PERCEPCIONES */}
-          <div style={{ backgroundColor: COLORS.dark }} className="p-4 rounded-xl flex justify-between items-center gap-2">
-            <PerceptionBadge active={perceptions.stench} icon={<Skull size={18} />} label="Hedor" color="text-red-400" />
-            <PerceptionBadge active={perceptions.breeze} icon={<Wind size={18} />} label="Brisa" color="text-blue-400" />
-            <PerceptionBadge active={perceptions.glitter} icon={<Sparkles size={18} />} label="Brillo" color={`text-[${COLORS.accentStrong}]`} />
-            <PerceptionBadge active={perceptions.bump} icon={<AlertCircle size={18} />} label="Choque" color="text-orange-400" />
-            <PerceptionBadge active={perceptions.scream} icon={<Volume2 size={18} />} label="Grito" color="text-purple-400" />
-          </div>
-        </section>
-
-        {/* COLUMNA DERECHA: CONTROLES Y LOGS */}
-        <section className="lg:col-span-5 flex flex-col gap-4 h-full">
+      // --- CONTROLES DE TECLADO ---
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if (mode !== 'manual' || status !== 'playing') return;
           
-          {/* Pestañas de Modo */}
-          <div className="flex rounded-xl overflow-hidden" style={{ backgroundColor: COLORS.dark }}>
-            <button 
-              onClick={() => { setMode('manual'); setIsAutoPlaying(false); }}
-              style={{ backgroundColor: mode === 'manual' ? COLORS.panel : 'transparent' }}
-              className={`flex-1 py-3 font-bold transition-colors flex justify-center items-center gap-2 ${mode === 'manual' ? `text-[${COLORS.accentWarm}]` : ''}`}
-            >
-              <Hand size={18} /> Modo Manual
-            </button>
-            <button 
-              onClick={() => setMode('code')}
-              style={{ backgroundColor: mode === 'code' ? COLORS.panel : 'transparent' }}
-              className={`flex-1 py-3 font-bold transition-colors flex justify-center items-center gap-2 ${mode === 'code' ? `text-[${COLORS.accentWarm}]` : ''}`}
-            >
-              <Code size={18} /> Modo Código
-            </button>
-          </div>
+          let handled = true;
+          switch(e.key) {
+            case 'ArrowUp': handleAction('MOVER_HACIA', 0); break;
+            case 'ArrowRight': handleAction('MOVER_HACIA', 1); break;
+            case 'ArrowDown': handleAction('MOVER_HACIA', 2); break;
+            case 'ArrowLeft': handleAction('MOVER_HACIA', 3); break;
+            case 'a': case 'A': handleAction('ATACAR'); break;
+            case 's': case 'S': handleAction('AGARRAR'); break;
+            default: handled = false;
+          }
+          if (handled) e.preventDefault();
+        };
 
-          {/* ÁREA DE CONTROL PRINCIPAL */}
-          <div style={{ backgroundColor: COLORS.panel }} className="p-5 rounded-2xl shadow-lg flex-1 flex flex-col">
-            
-            {mode === 'manual' && (
-              <div className="flex flex-col items-center justify-center flex-1 py-8 gap-6">
-                <p className="text-xs text-center opacity-60 bg-[#27272B] px-4 py-2 rounded-lg">
-                  Usa las <b>flechas del teclado</b> para moverte,<br/> <b>A</b> para Espadazo y <b>S</b> para Agarrar Oro.
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  <div />
-                  <GameButton onClick={() => handleAction('MOVER_HACIA', 0)} icon={<ArrowUp />} label="Arriba" />
-                  <div />
-                  <GameButton onClick={() => handleAction('MOVER_HACIA', 3)} icon={<ArrowLeft />} label="Izquierda" />
-                  <GameButton onClick={() => handleAction('MOVER_HACIA', 2)} icon={<ArrowDown />} label="Abajo" />
-                  <GameButton onClick={() => handleAction('MOVER_HACIA', 1)} icon={<ArrowRight />} label="Derecha" />
-                </div>
-                <div className="grid grid-cols-2 gap-4 w-full max-w-[280px]">
-                  <GameButton onClick={() => handleAction('ATACAR')} icon={<Sword />} label="Espadazo (A)" color={COLORS.accentCold} width="w-full" />
-                  <GameButton onClick={() => handleAction('AGARRAR')} icon={<Hand />} label="Agarrar (S)" color={COLORS.olive} width="w-full" />
-                </div>
-                <div className="text-sm opacity-70 mt-2 text-center">
-                  Magia de espada: {agent.hasArrow ? '1/1' : '0/1'}<br/>
-                  Oro obtenido: {agent.hasGold ? 'Sí' : 'No'}
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [mode, status, agent, board, currentLevel]);
+
+      useEffect(() => {
+        initGame(0);
+        const loadPy = async () => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js';
+          script.onload = async () => {
+            const py = await window.loadPyodide();
+            setPyodide(py);
+            setIsLoadingPy(false);
+          };
+          document.body.appendChild(script);
+        };
+        loadPy();
+      }, []);
+
+      // --- LÓGICA DEL JUEGO ---
+      const addLog = (msg) => setLogs(prev => [msg, ...prev].slice(0, 50));
+
+      const updatePerceptions = (x, y, currentBoard, bumped, screamed) => {
+        setPerceptions({
+          breeze: currentBoard[y][x].isBreezy,
+          stench: currentBoard[y][x].isStinky,
+          glitter: currentBoard[y][x].hasGold,
+          bump: bumped,
+          scream: screamed
+        });
+      };
+
+      const handleAction = (actionStr, extraParam = null) => {
+        if (status !== 'playing') return;
+
+        let { x, y, dir, hasGold, hasArrow } = agent;
+        let newBoard = [...board];
+        let bumped = false;
+        let screamed = false;
+        let newStatus = 'playing';
+
+        if (actionStr === 'MOVER_HACIA') {
+          dir = extraParam;
+          actionStr = 'AVANZAR'; 
+        }
+
+        switch (actionStr) {
+          case 'AVANZAR':
+            const nx = x + DIRS[dir].dx;
+            const ny = y + DIRS[dir].dy;
+            if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
+              x = nx;
+              y = ny;
+              newBoard[y][x].isVisited = true;
+              addLog(`Avanzaste hacia el ${DIRS[dir].label} a (${x},${y}).`);
+              
+              if (newBoard[y][x].hasWumpus) {
+                newStatus = 'died';
+                addLog('¡Oh no! Has sido devorado por el Wumpus.');
+              } else if (newBoard[y][x].hasPit) {
+                newStatus = 'died';
+                addLog('¡Ahhh! Caíste en un pozo sin fondo.');
+              } else if (x === 0 && y === 0 && hasGold) {
+                newStatus = 'won';
+                addLog('¡VICTORIA! Escapaste con el oro.');
+              }
+            } else {
+              bumped = true;
+              addLog('¡Ouch! Chocaste con la pared.');
+            }
+            break;
+          case 'IZQUIERDA':
+            dir = (dir + 3) % 4;
+            addLog('Giraste a la izquierda.');
+            break;
+          case 'DERECHA':
+            dir = (dir + 1) % 4;
+            addLog('Giraste a la derecha.');
+            break;
+          case 'AGARRAR':
+            if (newBoard[y][x].hasGold) {
+              hasGold = true;
+              newBoard[y][x].hasGold = false;
+              addLog('¡Agarraste el oro! (S) Ahora regresa a (0,0).');
+            } else {
+              addLog('Intentaste agarrar algo, pero no hay nada aquí.');
+            }
+            break;
+          case 'ATACAR':
+            if (hasArrow) {
+              hasArrow = false;
+              addLog('¡Diste un poderoso espadazo mágico! (A)');
+              let tx = x + DIRS[dir].dx;
+              let ty = y + DIRS[dir].dy;
+              let hit = false;
+              while (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE) {
+                if (newBoard[ty][tx].hasWumpus) {
+                  hit = true;
+                  newBoard[ty][tx].hasWumpus = false;
+                  for (let ry = 0; ry < SIZE; ry++) {
+                    for (let rx = 0; rx < SIZE; rx++) {
+                      newBoard[ry][rx].isStinky = false;
+                    }
+                  }
+                  break;
+                }
+                tx += DIRS[dir].dx;
+                ty += DIRS[dir].dy;
+              }
+              if (hit) {
+                screamed = true;
+                addLog('¡Escuchaste un grito aterrador! Tu espada destruyó al Wumpus.');
+              } else {
+                addLog('Silencio... el rayo de tu espada no golpeó nada.');
+              }
+            } else {
+              addLog('Tu espada se ha quedado sin poder mágico.');
+            }
+            break;
+          default:
+            addLog(`Acción desconocida: ${actionStr}`);
+        }
+
+        setAgent({ x, y, dir, hasGold, hasArrow });
+        setBoard(newBoard);
+        setStatus(newStatus);
+        updatePerceptions(x, y, newBoard, bumped, screamed);
+
+        if (newStatus !== 'playing') {
+          setIsAutoPlaying(false);
+        }
+      };
+
+      const executePythonStep = async () => {
+        if (!pyodide || status !== 'playing') return;
+        try {
+          await pyodide.runPythonAsync(`import random\n${pyCode}`);
+          const callStr = `decidir_accion(${perceptions.breeze ? 'True' : 'False'}, ${perceptions.stench ? 'True' : 'False'}, ${perceptions.glitter ? 'True' : 'False'}, ${perceptions.bump ? 'True' : 'False'}, ${perceptions.scream ? 'True' : 'False'})`;
+          const action = await pyodide.runPythonAsync(callStr);
+          if (typeof action === 'string') {
+            handleAction(action.toUpperCase());
+          } else {
+            addLog('Error: El script de Python no devolvió un string válido.');
+            setIsAutoPlaying(false);
+          }
+        } catch (err) {
+          addLog(`Error en Python: ${err.message.split('\n').pop()}`);
+          setIsAutoPlaying(false);
+        }
+      };
+
+      useEffect(() => {
+        let timer;
+        if (isAutoPlaying && status === 'playing') {
+          timer = setTimeout(() => {
+            executePythonStep();
+          }, 600);
+        }
+        return () => clearTimeout(timer);
+      }, [isAutoPlaying, agent, status]);
+
+      // --- RENDERIZADO ---
+      return (
+        <div style={{ backgroundColor: COLORS.bgMain, color: COLORS.lightText }} className="min-h-screen font-sans p-6 selection:bg-[#F3DA4B] selection:text-[#1B1B1E]">
+          <header className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between mb-8 border-b border-[#464849] pb-4 gap-4">
+            <div className="flex items-center gap-3">
+              <Skull size={32} style={{ color: COLORS.accentStrong }} />
+              <h1 style={{ color: COLORS.accentWarm }} className="text-2xl md:text-3xl font-bold tracking-wider text-center md:text-left">
+                EL MUNDO DE WUMPUS - NIVEL {currentLevel + 1}
+              </h1>
+            </div>
+            <div className="flex gap-2">
+              {currentLevel > 0 && (
+                <button onClick={() => initGame(currentLevel - 1)} style={{ backgroundColor: COLORS.panel }} className="px-3 py-2 rounded-lg hover:bg-[#606C43] transition-colors font-semibold">&lt;</button>
+              )}
+              <button onClick={() => initGame(currentLevel)} style={{ backgroundColor: COLORS.panel }} className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-[#606C43] transition-colors font-semibold">
+                <RefreshCw size={18} /> Reiniciar Nivel
+              </button>
+              {currentLevel < LEVELS.length - 1 && (
+                <button onClick={() => initGame(currentLevel + 1)} style={{ backgroundColor: COLORS.panel }} className="px-3 py-2 rounded-lg hover:bg-[#606C43] transition-colors font-semibold">&gt;</button>
+              )}
+            </div>
+          </header>
+
+          <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <section className="lg:col-span-7 flex flex-col gap-4">
+              <div style={{ backgroundColor: COLORS.panel }} className="p-6 rounded-2xl shadow-2xl relative">
+                {status !== 'playing' && (
+                  <div className="absolute inset-0 z-10 bg-[#1B1B1E]/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center">
+                    {status === 'won' ? (
+                      <>
+                        <Trophy size={64} style={{ color: COLORS.accentStrong }} className="mb-4 animate-bounce" />
+                        <h2 style={{ color: COLORS.accentWarm }} className="text-3xl font-bold">¡HAS ESCAPADO!</h2>
+                        {currentLevel < LEVELS.length - 1 ? (
+                          <button onClick={() => initGame(currentLevel + 1)} style={{ backgroundColor: COLORS.accentCold }} className="mt-6 px-6 py-3 rounded-lg hover:bg-[#606C43] transition-colors text-white font-bold">Siguiente Nivel</button>
+                        ) : (
+                          <div className="mt-4 text-center">
+                            <p className="text-xl font-bold text-green-400 mb-4">¡JUEGO COMPLETADO!</p>
+                            <button onClick={() => initGame(0)} style={{ backgroundColor: COLORS.accentCold }} className="px-6 py-3 rounded-lg hover:bg-[#606C43] transition-colors text-white font-bold">Jugar de Nuevo</button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Skull size={64} className="text-red-500 mb-4 animate-pulse" />
+                        <h2 className="text-red-400 text-3xl font-bold">HAS MUERTO</h2>
+                        <button onClick={() => initGame(currentLevel)} style={{ backgroundColor: COLORS.accentCold }} className="mt-6 px-6 py-3 rounded-lg hover:bg-[#606C43] transition-colors text-white font-bold">Reintentar Nivel</button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-rows-5 gap-2 aspect-square">
+                  {[4, 3, 2, 1, 0].map(y => (
+                    <div key={`row-${y}`} className="grid grid-cols-5 gap-2">
+                      {[0, 1, 2, 3, 4].map(x => {
+                        const cell = board[y] ? board[y][x] : null;
+                        if (!cell) return null;
+                        const isAgentHere = agent.x === x && agent.y === y;
+                        const showContent = cell.isVisited || status !== 'playing';
+
+                        return (
+                          <div key={`${x}-${y}`} style={{ backgroundColor: cell.isVisited ? COLORS.panel : COLORS.dark }} className={`relative rounded-xl border-2 flex items-center justify-center overflow-hidden ${isAgentHere ? 'border-[#F9E40B]' : 'border-transparent'} ${!cell.isVisited ? 'opacity-80' : 'shadow-inner'}`}>
+                            {showContent && (
+                              <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-1 opacity-40">
+                                {cell.hasPit && <div className="w-full h-full bg-black/50 absolute" />}
+                                {cell.hasWumpus && <Skull size={32} className="text-red-500 z-0" />}
+                                {cell.hasGold && <Sparkles size={24} style={{ color: COLORS.accentStrong }} className="z-0 animate-pulse" />}
+                              </div>
+                            )}
+                            {isAgentHere && (
+                              <div className="absolute inset-0 z-10 flex items-center justify-center">
+                                 <HeroKnight dir={agent.dir} />
+                              </div>
+                            )}
+                            <span className="absolute bottom-1 right-1 text-[10px] opacity-30">{x},{y}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               </div>
-            )}
 
-            {mode === 'code' && (
-              <div className="flex flex-col flex-1 h-full gap-3">
-                {isLoadingPy ? (
-                  <div className="flex-1 flex flex-col items-center justify-center opacity-70">
-                    <RefreshCw className="animate-spin mb-3" size={32} style={{ color: COLORS.accentWarm }}/>
-                    <p>Cargando motor Python (Pyodide)...</p>
+              <div style={{ backgroundColor: COLORS.dark }} className="p-4 rounded-xl flex justify-between items-center gap-2">
+                <PerceptionBadge active={perceptions.stench} icon={<Skull size={18} />} label="Hedor" color="text-red-400" />
+                <PerceptionBadge active={perceptions.breeze} icon={<Wind size={18} />} label="Brisa" color="text-blue-400" />
+                <PerceptionBadge active={perceptions.glitter} icon={<Sparkles size={18} />} label="Brillo" color={`text-[${COLORS.accentStrong}]`} />
+                <PerceptionBadge active={perceptions.bump} icon={<AlertCircle size={18} />} label="Choque" color="text-orange-400" />
+                <PerceptionBadge active={perceptions.scream} icon={<Volume2 size={18} />} label="Grito" color="text-purple-400" />
+              </div>
+            </section>
+
+            <section className="lg:col-span-5 flex flex-col gap-4 h-full">
+              <div className="flex rounded-xl overflow-hidden" style={{ backgroundColor: COLORS.dark }}>
+                <button onClick={() => { setMode('manual'); setIsAutoPlaying(false); }} style={{ backgroundColor: mode === 'manual' ? COLORS.panel : 'transparent' }} className={`flex-1 py-3 font-bold transition-colors flex justify-center items-center gap-2 ${mode === 'manual' ? `text-[${COLORS.accentWarm}]` : ''}`}><Hand size={18} /> Modo Manual</button>
+                <button onClick={() => setMode('code')} style={{ backgroundColor: mode === 'code' ? COLORS.panel : 'transparent' }} className={`flex-1 py-3 font-bold transition-colors flex justify-center items-center gap-2 ${mode === 'code' ? `text-[${COLORS.accentWarm}]` : ''}`}><Code size={18} /> Modo Código</button>
+              </div>
+
+              <div style={{ backgroundColor: COLORS.panel }} className="p-5 rounded-2xl shadow-lg flex-1 flex flex-col min-h-[350px]">
+                {mode === 'manual' && (
+                  <div className="flex flex-col items-center justify-center flex-1 py-8 gap-6">
+                    <p className="text-xs text-center opacity-60 bg-[#27272B] px-4 py-2 rounded-lg">
+                      Usa las <b>flechas del teclado</b> para moverte,<br/> <b>A</b> para Espadazo y <b>S</b> para Agarrar Oro.
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div />
+                      <GameButton onClick={() => handleAction('MOVER_HACIA', 0)} icon={<ArrowUp />} label="Arriba" />
+                      <div />
+                      <GameButton onClick={() => handleAction('MOVER_HACIA', 3)} icon={<ArrowLeft />} label="Izquierda" />
+                      <GameButton onClick={() => handleAction('MOVER_HACIA', 2)} icon={<ArrowDown />} label="Abajo" />
+                      <GameButton onClick={() => handleAction('MOVER_HACIA', 1)} icon={<ArrowRight />} label="Derecha" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 w-full max-w-[280px]">
+                      <GameButton onClick={() => handleAction('ATACAR')} icon={<Sword />} label="Espadazo (A)" color={COLORS.accentCold} width="w-full" />
+                      <GameButton onClick={() => handleAction('AGARRAR')} icon={<Hand />} label="Agarrar (S)" color={COLORS.olive} width="w-full" />
+                    </div>
+                    <div className="text-sm opacity-70 mt-2 text-center">Magia de espada: {agent.hasArrow ? '1/1' : '0/1'}<br/>Oro obtenido: {agent.hasGold ? 'Sí' : 'No'}</div>
                   </div>
-                ) : (
-                  <>
-                    <div className="text-xs opacity-80 bg-[#27272B] px-4 py-3 rounded-lg border border-[#464849]">
-                      <p className="font-bold mb-1" style={{ color: COLORS.accentWarm }}>Instrucciones del Agente:</p>
-                      <p className="mb-2">Define la función principal que el juego llamará cada turno. Acciones válidas:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {['"AVANZAR"', '"IZQUIERDA"', '"DERECHA"', '"AGARRAR"', '"ATACAR"'].map(a => (
-                          <span key={a} className="bg-[#1B1B1E] px-2 py-1 rounded text-[#CBC9C2] font-mono">{a}</span>
-                        ))}
+                )}
+
+                {mode === 'code' && (
+                  <div className="flex flex-col flex-1 h-full gap-3">
+                    {isLoadingPy ? (
+                      <div className="flex-1 flex flex-col items-center justify-center opacity-70">
+                        <RefreshCw className="animate-spin mb-3" size={32} style={{ color: COLORS.accentWarm }}/>
+                        <p>Cargando motor Python (Pyodide)...</p>
                       </div>
-                    </div>
-                    <textarea 
-                      value={pyCode}
-                      onChange={(e) => setPyCode(e.target.value)}
-                      spellCheck="false"
-                      style={{ backgroundColor: COLORS.dark, color: '#e5e5e5' }}
-                      className="w-full flex-1 rounded-xl p-4 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#F3DA4B]"
-                    />
-                    <div className="flex gap-2">
-                      {!isAutoPlaying ? (
-                         <button 
-                         onClick={() => setIsAutoPlaying(true)}
-                         disabled={status !== 'playing'}
-                         style={{ backgroundColor: COLORS.accentCold }}
-                         className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#606C43] transition-colors disabled:opacity-50"
-                       >
-                         <Play size={18} /> Ejecutar Automático
-                       </button>
-                      ) : (
-                        <button 
-                        onClick={() => setIsAutoPlaying(false)}
-                        className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 bg-red-800 hover:bg-red-700 transition-colors"
-                      >
-                        <Square size={18} /> Detener
-                      </button>
-                      )}
-                      <button 
-                        onClick={executePythonStep}
-                        disabled={isAutoPlaying || status !== 'playing'}
-                        style={{ backgroundColor: COLORS.olive }}
-                        className="px-4 py-3 rounded-lg font-bold flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-50"
-                        title="Ejecutar 1 Turno"
-                      >
-                        Paso
-                      </button>
-                    </div>
-                  </>
+                    ) : (
+                      <>
+                        <div className="text-xs opacity-80 bg-[#27272B] px-4 py-3 rounded-lg border border-[#464849]">
+                          <p className="font-bold mb-1" style={{ color: COLORS.accentWarm }}>Instrucciones del Agente:</p>
+                          <p className="mb-2">Define la función principal que el juego llamará cada turno.</p>
+                        </div>
+                        <textarea value={pyCode} onChange={(e) => setPyCode(e.target.value)} spellCheck="false" style={{ backgroundColor: COLORS.dark, color: '#e5e5e5' }} className="w-full flex-1 rounded-xl p-4 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#F3DA4B] min-h-[150px]" />
+                        <div className="flex gap-2">
+                          {!isAutoPlaying ? (
+                            <button onClick={() => setIsAutoPlaying(true)} disabled={status !== 'playing'} style={{ backgroundColor: COLORS.accentCold }} className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#606C43] transition-colors disabled:opacity-50"><Play size={18} /> Auto</button>
+                          ) : (
+                            <button onClick={() => setIsAutoPlaying(false)} className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 bg-red-800 hover:bg-red-700 transition-colors"><Square size={18} /> Detener</button>
+                          )}
+                          <button onClick={executePythonStep} disabled={isAutoPlaying || status !== 'playing'} style={{ backgroundColor: COLORS.olive }} className="px-4 py-3 rounded-lg font-bold flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-50">Paso</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* LOGS / CONSOLA */}
-          <div style={{ backgroundColor: COLORS.dark }} className="h-48 rounded-xl p-4 overflow-y-auto flex flex-col gap-1 text-sm font-mono relative">
-            <h3 style={{ color: COLORS.softOlive }} className="sticky top-0 bg-[#27272B] pb-2 mb-2 border-b border-[#464849] font-bold">
-              Consola de Eventos
-            </h3>
-            {logs.map((log, i) => (
-              <div key={i} className={`opacity-${Math.max(20, 100 - i * 15)} ${i===0 ? `text-[${COLORS.accentWarm}]` : ''}`}>
-                <span className="opacity-50 mr-2">►</span>
-                {log}
+              <div style={{ backgroundColor: COLORS.dark }} className="h-48 rounded-xl p-4 overflow-y-auto flex flex-col gap-1 text-sm font-mono relative">
+                <h3 style={{ color: COLORS.softOlive }} className="sticky top-0 bg-[#27272B] pb-2 mb-2 border-b border-[#464849] font-bold">Consola de Eventos</h3>
+                {logs.map((log, i) => (
+                  <div key={i} className={`opacity-${Math.max(20, 100 - i * 15)} ${i===0 ? 'text-[#F3DA4B]' : ''}`}><span className="opacity-50 mr-2">►</span>{log}</div>
+                ))}
               </div>
-            ))}
-          </div>
+            </section>
+          </main>
+        </div>
+      );
+    }
 
-        </section>
-      </main>
-    </div>
-  );
-}
+    // --- COMPONENTES AUXILIARES ---
+    function GameButton({ onClick, icon, label, color = '#27272B', width = 'w-16' }) {
+      return (
+        <button onClick={onClick} style={{ backgroundColor: color }} className={`${width} h-16 rounded-xl flex flex-col items-center justify-center gap-1 hover:brightness-125 transition-all shadow-md active:scale-95`}>
+          {icon}
+          <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{label}</span>
+        </button>
+      );
+    }
 
-// --- COMPONENTES AUXILIARES ---
+    function PerceptionBadge({ active, icon, label, color }) {
+      return (
+        <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${active ? `opacity-100 ${color} drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]` : 'opacity-20 grayscale'}`}>
+          <div className={`p-2 rounded-full ${active ? 'bg-[#464849]' : ''}`}>{icon}</div>
+          <span className="text-[10px] uppercase font-bold">{label}</span>
+        </div>
+      );
+    }
 
-function GameButton({ onClick, icon, label, color = '#27272B', width = 'w-16' }) {
-  return (
-    <button 
-      onClick={onClick}
-      style={{ backgroundColor: color }}
-      className={`${width} h-16 rounded-xl flex flex-col items-center justify-center gap-1 hover:brightness-125 transition-all shadow-md active:scale-95`}
-    >
-      {icon}
-      <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{label}</span>
-    </button>
-  );
-}
+    function HeroKnight({ dir }) {
+      const DIRS = [{ rot: -90 }, { rot: 0 }, { rot: 90 }, { rot: 180 }];
+      const rotation = DIRS[dir].rot;
+      return (
+        <svg viewBox="0 0 40 40" className="w-[80%] h-[80%] drop-shadow-xl" style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.2s ease-out' }}>
+          <polygon points="12,15 2,20 12,25" fill="#2D473B" />
+          <path d="M 12 4 L 20 4 L 20 9 Q 16 15 12 9 Z" fill="#464849" stroke="#CBC9C2" strokeWidth="1.5" />
+          <rect x="16" y="27" width="20" height="3" fill="#CBC9C2" />
+          <rect x="18" y="24" width="3" height="9" fill="#27272B" />
+          <circle cx="18" cy="28.5" r="1.5" fill="#F9E40B" />
+          <rect x="12" y="14" width="10" height="12" rx="2" fill="#464849" />
+          <circle cx="15" cy="13" r="4" fill="#CBC9C2" />
+          <circle cx="15" cy="27" r="4" fill="#CBC9C2" />
+          <rect x="18" y="15" width="8" height="10" rx="3" fill="#CBC9C2" />
+          <rect x="22" y="18" width="4" height="4" fill="#1B1B1E" />
+          <rect x="20" y="19" width="6" height="2" fill="#1B1B1E" />
+        </svg>
+      );
+    }
 
-function PerceptionBadge({ active, icon, label, color }) {
-  return (
-    <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${active ? `opacity-100 ${color} drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]` : 'opacity-20 grayscale'}`}>
-      <div className={`p-2 rounded-full ${active ? 'bg-[#464849]' : ''}`}>
-        {icon}
-      </div>
-      <span className="text-[10px] uppercase font-bold">{label}</span>
-    </div>
-  );
-}
-
-function HeroKnight({ dir }) {
-  // Nuestro héroe caballero está dibujado mirando a la derecha (0 grados)
-  // Aplicamos la rotación correspondiente del array DIRS
-  const rotation = DIRS[dir].rot;
-  return (
-    <svg 
-      viewBox="0 0 40 40" 
-      className="w-[80%] h-[80%] drop-shadow-xl" 
-      style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.2s ease-out' }}
-    >
-      {/* Capa oscilante (apunta a la izquierda) */}
-      <polygon points="12,15 2,20 12,25" fill={COLORS.accentCold} />
-      
-      {/* Escudo de caballero (brazo izquierdo, parte superior de la figura) */}
-      <path d="M 12 4 L 20 4 L 20 9 Q 16 15 12 9 Z" fill="#464849" stroke="#CBC9C2" strokeWidth="1.5" />
-      
-      {/* Espada (brazo derecho, parte inferior de la figura) */}
-      <rect x="16" y="27" width="20" height="3" fill="#CBC9C2" />
-      <rect x="18" y="24" width="3" height="9" fill="#27272B" />
-      <circle cx="18" cy="28.5" r="1.5" fill="#F9E40B" />
-      
-      {/* Cuerpo - Armadura */}
-      <rect x="12" y="14" width="10" height="12" rx="2" fill="#464849" />
-      
-      {/* Hombreras de armadura */}
-      <circle cx="15" cy="13" r="4" fill="#CBC9C2" />
-      <circle cx="15" cy="27" r="4" fill="#CBC9C2" />
-      
-      {/* Casco del Caballero */}
-      <rect x="18" y="15" width="8" height="10" rx="3" fill="#CBC9C2" />
-      {/* Visera del casco (estilo ranura en T) */}
-      <rect x="22" y="18" width="4" height="4" fill="#1B1B1E" />
-      <rect x="20" y="19" width="6" height="2" fill="#1B1B1E" />
-    </svg>
-  );
-}
+    // --- INICIALIZAR LA APLICACIÓN ---
+    const root = createRoot(document.getElementById('root'));
+    root.render(<WumpusWorld />);
+  </script>
+</body>
+</html>
