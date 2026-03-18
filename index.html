@@ -6,7 +6,6 @@
   <title>El Mundo de Wumpus</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
-  
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <script type="importmap">
@@ -32,7 +31,6 @@
       ArrowLeft, ArrowRight, Sword, Volume2
     } from 'lucide-react';
 
-    // --- CONFIGURACIÓN DE COLORES DE LA PALETA ---
     const COLORS = {
       bgMain: '#1B1B1E',
       panel: '#464849',
@@ -45,7 +43,6 @@
       softOlive: '#898B4B'
     };
 
-    // --- CONSTANTES DEL JUEGO ---
     const SIZE = 5;
     const DIRS = [
       { dx: 0, dy: 1, label: 'Norte', rot: -90 }, // 0
@@ -72,24 +69,20 @@
     return random.choice(["AVANZAR", "IZQUIERDA", "DERECHA"])
 `;
 
-    // Quité el "export default" porque estamos en un solo archivo
     function WumpusWorld() {
-      // --- ESTADOS ---
       const [board, setBoard] = useState([]);
       const [agent, setAgent] = useState({ x: 0, y: 0, dir: 1, hasGold: false, hasArrow: true });
-      const [status, setStatus] = useState('playing'); // playing, won, died
+      const [status, setStatus] = useState('playing');
       const [logs, setLogs] = useState([]);
-      const [mode, setMode] = useState('manual'); // manual, code
+      const [mode, setMode] = useState('manual');
       const [currentLevel, setCurrentLevel] = useState(0);
       const [perceptions, setPerceptions] = useState({ breeze: false, stench: false, glitter: false, bump: false, scream: false });
       
-      // Pyodide States
       const [pyodide, setPyodide] = useState(null);
       const [pyCode, setPyCode] = useState(DEFAULT_PYTHON_CODE);
       const [isAutoPlaying, setIsAutoPlaying] = useState(false);
       const [isLoadingPy, setIsLoadingPy] = useState(true);
 
-      // --- INICIALIZACIÓN ---
       const initGame = (levelIdx = currentLevel) => {
         const config = LEVELS[levelIdx];
         let newBoard = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null).map(() => ({
@@ -97,12 +90,10 @@
           isVisited: false, isBreezy: false, isStinky: false
         })));
 
-        // Configurar nivel
         newBoard[config.wumpus.y][config.wumpus.x].hasWumpus = true;
         newBoard[config.gold.y][config.gold.x].hasGold = true;
         config.pits.forEach(p => newBoard[p.y][p.x].hasPit = true);
 
-        // Calcular olores y brisas
         for (let y = 0; y < SIZE; y++) {
           for (let x = 0; x < SIZE; x++) {
             const neighbors = [
@@ -128,7 +119,6 @@
         updatePerceptions(0, 0, newBoard, false, false);
       };
 
-      // --- CONTROLES DE TECLADO ---
       useEffect(() => {
         const handleKeyDown = (e) => {
           if (mode !== 'manual' || status !== 'playing') return;
@@ -165,7 +155,6 @@
         loadPy();
       }, []);
 
-      // --- LÓGICA DEL JUEGO ---
       const addLog = (msg) => setLogs(prev => [msg, ...prev].slice(0, 50));
 
       const updatePerceptions = (x, y, currentBoard, bumped, screamed) => {
@@ -307,10 +296,10 @@
         return () => clearTimeout(timer);
       }, [isAutoPlaying, agent, status]);
 
-      // --- RENDERIZADO ---
       return (
         <div style={{ backgroundColor: COLORS.bgMain, color: COLORS.lightText }} className="min-h-screen font-sans p-6 selection:bg-[#F3DA4B] selection:text-[#1B1B1E]">
-          <header className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between mb-8 border-b border-[#464849] pb-4 gap-4">
+          {/* HEADER MODIFICADO: max-w-[95%] y 2xl:max-w-[1600px] */}
+          <header className="max-w-[95%] 2xl:max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between mb-8 border-b border-[#464849] pb-4 gap-4">
             <div className="flex items-center gap-3">
               <Skull size={32} style={{ color: COLORS.accentStrong }} />
               <h1 style={{ color: COLORS.accentWarm }} className="text-2xl md:text-3xl font-bold tracking-wider text-center md:text-left">
@@ -330,7 +319,8 @@
             </div>
           </header>
 
-          <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* MAIN MODIFICADO: max-w-[95%] y 2xl:max-w-[1600px] */}
+          <main className="max-w-[95%] 2xl:max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
             <section className="lg:col-span-7 flex flex-col gap-4">
               <div style={{ backgroundColor: COLORS.panel }} className="p-6 rounded-2xl shadow-2xl relative">
                 {status !== 'playing' && (
@@ -440,7 +430,8 @@
                           <p className="font-bold mb-1" style={{ color: COLORS.accentWarm }}>Instrucciones del Agente:</p>
                           <p className="mb-2">Define la función principal que el juego llamará cada turno.</p>
                         </div>
-                        <textarea value={pyCode} onChange={(e) => setPyCode(e.target.value)} spellCheck="false" style={{ backgroundColor: COLORS.dark, color: '#e5e5e5' }} className="w-full flex-1 rounded-xl p-4 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#F3DA4B] min-h-[150px]" />
+                        {/* TEXTAREA MODIFICADO: text-[13px] y leading-relaxed */}
+                        <textarea value={pyCode} onChange={(e) => setPyCode(e.target.value)} spellCheck="false" style={{ backgroundColor: COLORS.dark, color: '#e5e5e5' }} className="w-full flex-1 rounded-xl p-4 font-mono text-[13px] leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#F3DA4B] min-h-[150px]" />
                         <div className="flex gap-2">
                           {!isAutoPlaying ? (
                             <button onClick={() => setIsAutoPlaying(true)} disabled={status !== 'playing'} style={{ backgroundColor: COLORS.accentCold }} className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#606C43] transition-colors disabled:opacity-50"><Play size={18} /> Auto</button>
@@ -467,7 +458,6 @@
       );
     }
 
-    // --- COMPONENTES AUXILIARES ---
     function GameButton({ onClick, icon, label, color = '#27272B', width = 'w-16' }) {
       return (
         <button onClick={onClick} style={{ backgroundColor: color }} className={`${width} h-16 rounded-xl flex flex-col items-center justify-center gap-1 hover:brightness-125 transition-all shadow-md active:scale-95`}>
@@ -506,7 +496,6 @@
       );
     }
 
-    // --- INICIALIZAR LA APLICACIÓN ---
     const root = createRoot(document.getElementById('root'));
     root.render(<WumpusWorld />);
   </script>
