@@ -28,7 +28,7 @@
     import { 
       Skull, Wind, Navigation, Hand, Play, Square,
       Trophy, RefreshCw, Code, ArrowUp, ArrowDown,
-      ArrowLeft, ArrowRight, Sword, Sparkles
+      ArrowLeft, ArrowRight, Sword, Sparkles, FastForward
     } from 'lucide-react';
 
     // --- SISTEMA DE SONIDO RETRO (WEB AUDIO API) ---
@@ -149,6 +149,7 @@
       const [mode, setMode] = useState('manual');
       const [currentLevel, setCurrentLevel] = useState(0);
       const [perceptions, setPerceptions] = useState({ breeze: false, stench: false, glitter: false, wall: false });
+      const [isFastMode, setIsFastMode] = useState(false); // <--- NUEVO ESTADO PARA CÁMARA RÁPIDA
       
       const [pyodide, setPyodide] = useState(null);
       const [pyCode, setPyCode] = useState(DEFAULT_PYTHON_CODE);
@@ -235,7 +236,6 @@
         const frontY = y + DIRS[dir].dy;
         const isWall = frontX < 0 || frontX >= SIZE || frontY < 0 || frontY >= SIZE;
         
-        // Glitter detecta si hay oro enfrente
         const isFrontGold = !isWall && currentBoard[frontY][frontX].hasGold;
 
         setPerceptions({
@@ -303,14 +303,14 @@
               hasGold = true;
               newBoard[grabY][grabX].hasGold = false;
               newScore += 100;
-              newStatus = 'won'; // Victoria instantánea
+              newStatus = 'won';
               addLog('¡Agarraste el lingote de enfrente! (+100 pts) ¡VICTORIA!');
               playSound('gold');
             } else if (newBoard[y][x].hasGold) { 
               hasGold = true;
               newBoard[y][x].hasGold = false;
               newScore += 100;
-              newStatus = 'won'; // Victoria instantánea
+              newStatus = 'won';
               addLog('¡Agarraste el lingote! (+100 pts) ¡VICTORIA!');
               playSound('gold');
             } else {
@@ -319,7 +319,6 @@
             }
             break;
           case 'ATTACK':
-            // Se quitó la restricción de perder la flecha/espada (espadazos ilimitados)
             addLog('¡Diste un poderoso espadazo mágico! (A)');
             playSound('attack');
             let tx = x + DIRS[dir].dx;
@@ -384,12 +383,14 @@
       useEffect(() => {
         let timer;
         if (isAutoPlaying && status === 'playing') {
+          // APLICANDO LA VELOCIDAD DE CÁMARA RÁPIDA (100ms) vs NORMAL (600ms)
+          const delay = isFastMode ? 100 : 600;
           timer = setTimeout(() => {
             executePythonStep();
-          }, 600);
+          }, delay);
         }
         return () => clearTimeout(timer);
-      }, [isAutoPlaying, agent, status]);
+      }, [isAutoPlaying, agent, status, isFastMode]); // isFastMode agregado como dependencia
 
       return (
         <div style={{ backgroundColor: COLORS.bgMain, color: COLORS.lightText }} className="min-h-screen font-sans p-6 selection:bg-[#F3DA4B] selection:text-[#1B1B1E]">
@@ -401,13 +402,26 @@
               </h1>
             </div>
             
-            <div className="flex items-center gap-6">
+            <div className="flex items-center flex-wrap justify-center gap-4 md:gap-6">
               <div className="flex items-center gap-2 bg-[#27272B] px-4 py-2 rounded-xl border border-[#464849] shadow-inner">
                 <span className="text-xs font-bold text-[#CBC9C2] uppercase tracking-wider">Score</span>
                 <span className={`text-2xl font-black ${score < 0 ? 'text-red-400' : 'text-[#F9E40B]'}`}>{score}</span>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => initGame(currentLevel, 100)} style={{ backgroundColor: COLORS.panel }} className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-[#606C43] transition-colors font-semibold">
+                {/* --- NUEVO BOTÓN DE CÁMARA RÁPIDA --- */}
+                <button 
+                  onClick={() => setIsFastMode(!isFastMode)} 
+                  style={{ 
+                    backgroundColor: isFastMode ? COLORS.accentStrong : COLORS.panel,
+                    color: isFastMode ? '#1B1B1E' : COLORS.lightText
+                  }} 
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg hover:brightness-110 transition-all font-semibold shadow-md"
+                  title="Acelera la velocidad del agente en modo código"
+                >
+                  <FastForward size={18} /> {isFastMode ? 'Rápido' : 'Normal'}
+                </button>
+
+                <button onClick={() => initGame(currentLevel, 100)} style={{ backgroundColor: COLORS.panel }} className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-[#606C43] transition-colors font-semibold shadow-md">
                   <RefreshCw size={18} /> Reiniciar Nivel
                 </button>
               </div>
@@ -529,7 +543,6 @@
                       <GameButton onClick={() => handleAction('ATTACK')} icon={<Sword />} label="Espadazo (A)" color={COLORS.accentCold} width="w-full" />
                       <GameButton onClick={() => handleAction('GRAB')} icon={<Hand />} label="Agarrar (S)" color={COLORS.olive} width="w-full" />
                     </div>
-                    {/* Actualizado a munición infinita */}
                     <div className="text-sm opacity-70 mt-2 text-center">Magia de espada: ∞<br/>Oro obtenido: {agent.hasGold ? 'Sí' : 'No'}</div>
                   </div>
                 )}
