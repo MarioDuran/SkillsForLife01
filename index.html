@@ -417,7 +417,7 @@
               
               <div style={{ backgroundColor: COLORS.panel }} className="p-4 md:p-6 rounded-2xl shadow-2xl relative w-full max-w-[65vh]">
                 {status !== 'playing' && (
-                  <div className="absolute inset-0 z-20 bg-[#1B1B1E]/85 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center">
+                  <div className="absolute inset-0 z-20 bg-[#1B1B1E]/60 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center transition-all duration-500">
                     {status === 'won' ? (
                       <>
                         <Trophy size={64} style={{ color: COLORS.accentStrong }} className="mb-4 animate-bounce" />
@@ -480,7 +480,9 @@
                             
                             {isAgentHere && (
                               <div className="absolute inset-0 z-20 flex items-center justify-center">
-                                {status === 'died-wumpus' ? <WumpusMonster /> : <HeroKnight dir={agent.dir} />}
+                                {status === 'died-wumpus' && <WumpusMonster />}
+                                {status === 'died-pit' && <FallingKnight />}
+                                {status === 'playing' && <HeroKnight dir={agent.dir} />}
                               </div>
                             )}
                             <span className="absolute bottom-1 right-1 text-[10px] font-bold opacity-30 z-30">{x+1},{y+1}</span>
@@ -497,7 +499,6 @@
                 <PerceptionBadge active={perceptions.breeze} icon={<Wind size={18} />} label="Brisa" color="text-blue-400" />
                 <PerceptionBadge active={perceptions.visited} icon={<Eye size={18} />} label="Visitado" color="text-green-400" />
                 <PerceptionBadge active={perceptions.wall} icon={<BoxSquare size={18} />} label="Muro" color="text-orange-400" />
-                <PerceptionBadge active={perceptions.scream} icon={<Volume2 size={18} />} label="Grito" color="text-purple-400" />
               </div>
             </section>
 
@@ -592,7 +593,7 @@
       const DIRS = [{ rot: -90 }, { rot: 0 }, { rot: 90 }, { rot: 180 }];
       const rotation = DIRS[dir].rot;
       return (
-        <svg viewBox="0 0 40 40" className="w-[80%] h-[80%] drop-shadow-xl" style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.2s ease-out' }}>
+        <svg viewBox="0 0 40 40" className="w-[80%] h-[80%] drop-shadow-xl z-20" style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.2s ease-out' }}>
           <polygon points="12,15 2,20 12,25" fill="#2D473B" />
           <path d="M 12 4 L 20 4 L 20 9 Q 16 15 12 9 Z" fill="#464849" stroke="#CBC9C2" strokeWidth="1.5" />
           <rect x="16" y="27" width="20" height="3" fill="#CBC9C2" />
@@ -608,10 +609,26 @@
       );
     }
 
+    // --- ANIMACIÓN DE CAÍDA DEL CABALLERO ---
+    function FallingKnight() {
+      return (
+        <div className="w-[80%] h-[80%] relative z-20 flex items-center justify-center animate-[pitFall_0.8s_ease-in-out_forwards]">
+          <HeroKnight dir={2} /> {/* Reutilizamos el caballero mirando hacia "abajo" */}
+          <style>{`
+            @keyframes pitFall {
+              0% { transform: scale(1) rotate(0deg); opacity: 1; }
+              20% { transform: scale(1.1) rotate(10deg); opacity: 1; }
+              100% { transform: scale(0.1) rotate(360deg); opacity: 0; }
+            }
+          `}</style>
+        </div>
+      );
+    }
+
     // --- DISEÑO DEL WUMPUS ---
     function WumpusMonster() {
       return (
-        <svg viewBox="0 0 40 40" className="w-[90%] h-[90%] drop-shadow-2xl animate-bounce z-30">
+        <svg viewBox="0 0 40 40" className="w-[90%] h-[90%] drop-shadow-2xl animate-bounce z-30 relative">
           <path d="M 5 30 C 5 10, 35 10, 35 30 Z" fill="#7f1d1d" />
           <circle cx="14" cy="20" r="4" fill="#fef08a" />
           <circle cx="26" cy="20" r="4" fill="#fef08a" />
