@@ -277,10 +277,6 @@
                 newStatus = 'died-pit';
                 addLog('¡Ahhh! Caíste en un pozo sin fondo.');
                 playSound('pit');
-              } else if (x === 0 && y === 0 && hasGold) {
-                newStatus = 'won';
-                addLog('¡VICTORIA! Lograste salir por la escalera con el oro.');
-                playSound('gold');
               } else {
                 playSound('move');
               }
@@ -307,13 +303,15 @@
               hasGold = true;
               newBoard[grabY][grabX].hasGold = false;
               newScore += 100;
-              addLog('¡Agarraste el lingote de enfrente! (+100 pts) (S) Ahora regresa a la escalera en (1,1).');
+              newStatus = 'won'; // Victoria instantánea
+              addLog('¡Agarraste el lingote de enfrente! (+100 pts) ¡VICTORIA!');
               playSound('gold');
             } else if (newBoard[y][x].hasGold) { 
               hasGold = true;
               newBoard[y][x].hasGold = false;
               newScore += 100;
-              addLog('¡Agarraste el lingote! (+100 pts) (S) Ahora regresa a la escalera en (1,1).');
+              newStatus = 'won'; // Victoria instantánea
+              addLog('¡Agarraste el lingote! (+100 pts) ¡VICTORIA!');
               playSound('gold');
             } else {
               addLog('Intentaste agarrar algo, pero no hay nada aquí ni enfrente. (-1 pt)');
@@ -321,37 +319,32 @@
             }
             break;
           case 'ATTACK':
-            if (hasArrow) {
-              hasArrow = false;
-              addLog('¡Diste un poderoso espadazo mágico! (A)');
-              playSound('attack');
-              let tx = x + DIRS[dir].dx;
-              let ty = y + DIRS[dir].dy;
-              let hit = false;
-              while (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE) {
-                if (newBoard[ty][tx].hasWumpus) {
-                  hit = true;
-                  newBoard[ty][tx].hasWumpus = false;
-                  for (let ry = 0; ry < SIZE; ry++) {
-                    for (let rx = 0; rx < SIZE; rx++) {
-                      newBoard[ry][rx].isStinky = false;
-                    }
+            // Se quitó la restricción de perder la flecha/espada (espadazos ilimitados)
+            addLog('¡Diste un poderoso espadazo mágico! (A)');
+            playSound('attack');
+            let tx = x + DIRS[dir].dx;
+            let ty = y + DIRS[dir].dy;
+            let hit = false;
+            while (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE) {
+              if (newBoard[ty][tx].hasWumpus) {
+                hit = true;
+                newBoard[ty][tx].hasWumpus = false;
+                for (let ry = 0; ry < SIZE; ry++) {
+                  for (let rx = 0; rx < SIZE; rx++) {
+                    newBoard[ry][rx].isStinky = false;
                   }
-                  break;
                 }
-                tx += DIRS[dir].dx;
-                ty += DIRS[dir].dy;
+                break;
               }
-              if (hit) {
-                newScore += 50;
-                addLog('¡Escuchaste un grito aterrador! (+50 pts) Tu espada destruyó al Wumpus.');
-                playSound('scream');
-              } else {
-                addLog('Silencio... el rayo de tu espada no golpeó nada.');
-              }
+              tx += DIRS[dir].dx;
+              ty += DIRS[dir].dy;
+            }
+            if (hit) {
+              newScore += 50;
+              addLog('¡Escuchaste un grito aterrador! (+50 pts) Tu espada destruyó al Wumpus.');
+              playSound('scream');
             } else {
-              addLog('Tu espada se ha quedado sin poder mágico. (-1 pt)');
-              playSound('bump');
+              addLog('Silencio... el rayo de tu espada no golpeó nada.');
             }
             break;
           default:
@@ -430,7 +423,7 @@
                     {status === 'won' ? (
                       <>
                         <Trophy size={64} style={{ color: COLORS.accentStrong }} className="mb-4 animate-bounce" />
-                        <h2 style={{ color: COLORS.accentWarm }} className="text-4xl font-bold text-center px-4 mb-2">¡HAS ESCAPADO!</h2>
+                        <h2 style={{ color: COLORS.accentWarm }} className="text-4xl font-bold text-center px-4 mb-2">¡HAS GANADO!</h2>
                         <p className="text-xl font-mono text-white mb-6">Puntaje Final: {score}</p>
                         {currentLevel < LEVELS.length - 1 ? (
                           <button onClick={() => initGame(currentLevel + 1, score)} style={{ backgroundColor: COLORS.accentCold }} className="mt-2 px-8 py-4 rounded-xl shadow-lg hover:bg-[#606C43] transition-colors text-white font-bold text-lg">Avanzar al Nivel {currentLevel + 2}</button>
@@ -536,7 +529,8 @@
                       <GameButton onClick={() => handleAction('ATTACK')} icon={<Sword />} label="Espadazo (A)" color={COLORS.accentCold} width="w-full" />
                       <GameButton onClick={() => handleAction('GRAB')} icon={<Hand />} label="Agarrar (S)" color={COLORS.olive} width="w-full" />
                     </div>
-                    <div className="text-sm opacity-70 mt-2 text-center">Magia de espada: {agent.hasArrow ? '1/1' : '0/1'}<br/>Oro obtenido: {agent.hasGold ? 'Sí' : 'No'}</div>
+                    {/* Actualizado a munición infinita */}
+                    <div className="text-sm opacity-70 mt-2 text-center">Magia de espada: ∞<br/>Oro obtenido: {agent.hasGold ? 'Sí' : 'No'}</div>
                   </div>
                 )}
 
