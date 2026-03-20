@@ -1,571 +1,662 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neural Flappy AI - Lab</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #1B1B1E; color: #CBC9C2; overflow-x: hidden; margin: 0; padding: 0; }
-        canvas { display: block; margin: 0 auto; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>El Mundo de Wumpus</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+      "lucide-react": "https://esm.sh/lucide-react@0.292.0"
+    }
+  }
+  </script>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4 bg-[#1B1B1E]">
+<body class="bg-[#1B1B1E]">
+  
+  <div id="root"></div>
 
-    <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8">
+  <script type="text/babel" data-type="module">
+    import React, { useState, useEffect, useRef } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { 
+      Skull, Wind, Navigation, Hand, Play, Square as BoxSquare,
+      AlertCircle, Trophy, RefreshCw, Code, ArrowUp, ArrowDown,
+      ArrowLeft, ArrowRight, Sword, Sparkles
+    } from 'lucide-react';
+
+    // --- SISTEMA DE SONIDO RETRO (WEB AUDIO API) ---
+    let audioCtx = null;
+    const playSound = (type) => {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      const now = audioCtx.currentTime;
+
+      switch(type) {
+        case 'move':
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(300, now);
+          osc.frequency.exponentialRampToValueAtTime(500, now + 0.1);
+          gainNode.gain.setValueAtTime(0.05, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+          osc.start(now);
+          osc.stop(now + 0.1);
+          break;
+        case 'wumpus': // Rugido grave (Muerte)
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(100, now);
+          osc.frequency.linearRampToValueAtTime(30, now + 0.6);
+          gainNode.gain.setValueAtTime(0.3, now);
+          gainNode.gain.linearRampToValueAtTime(0.01, now + 0.6);
+          osc.start(now);
+          osc.stop(now + 0.6);
+          break;
+        case 'scream': // Grito agudo (Wumpus asesinado)
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.exponentialRampToValueAtTime(100, now + 0.8);
+          gainNode.gain.setValueAtTime(0.3, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+          osc.start(now);
+          osc.stop(now + 0.8);
+          break;
+        case 'pit': // Caída
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(400, now);
+          osc.frequency.exponentialRampToValueAtTime(50, now + 0.5);
+          gainNode.gain.setValueAtTime(0.1, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+          osc.start(now);
+          osc.stop(now + 0.5);
+          break;
+        case 'gold': // Brillo agudo
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.setValueAtTime(1200, now + 0.1);
+          gainNode.gain.setValueAtTime(0.1, now);
+          gainNode.gain.linearRampToValueAtTime(0.01, now + 0.4);
+          osc.start(now);
+          osc.stop(now + 0.4);
+          break;
+        case 'attack': // Zumbido de espada
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(200, now);
+          osc.frequency.linearRampToValueAtTime(800, now + 0.15);
+          gainNode.gain.setValueAtTime(0.2, now);
+          gainNode.gain.linearRampToValueAtTime(0.01, now + 0.15);
+          osc.start(now);
+          osc.stop(now + 0.15);
+          break;
+        case 'bump': // Golpe sordo
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
+          gainNode.gain.setValueAtTime(0.15, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+          osc.start(now);
+          osc.stop(now + 0.1);
+          break;
+      }
+    };
+
+    const COLORS = {
+      bgMain: '#1B1B1E', panel: '#464849', dark: '#27272B', lightText: '#CBC9C2',
+      accentWarm: '#F3DA4B', accentStrong: '#F9E40B', accentCold: '#2D473B',
+      olive: '#606C43', softOlive: '#898B4B'
+    };
+
+    const SIZE = 5;
+    const DIRS = [
+      { dx: 0, dy: 1, label: 'Norte', rot: -90 },
+      { dx: 1, dy: 0, label: 'Este', rot: 0 },   
+      { dx: 0, dy: -1, label: 'Sur', rot: 90 },  
+      { dx: -1, dy: 0, label: 'Oeste', rot: 180 }
+    ];
+
+    const LEVELS = [
+      { wumpus: {x: 0, y: 4}, gold: {x: 2, y: 2}, pits: [{x: 4, y: 0}, {x: 4, y: 4}] },
+      { wumpus: {x: 2, y: 0}, gold: {x: 4, y: 0}, pits: [{x: 0, y: 3}, {x: 4, y: 4}] },
+      { wumpus: {x: 0, y: 4}, gold: {x: 4, y: 4}, pits: [{x: 3, y: 0}, {x: 0, y: 3}, {x: 4, y: 1}, {x: 1, y: 4}] },
+      { wumpus: {x: 3, y: 3}, gold: {x: 4, y: 4}, pits: [{x: 3, y: 0}, {x: 3, y: 1}, {x: 0, y: 3}, {x: 2, y: 4}] },
+      { wumpus: {x: 2, y: 2}, gold: {x: 4, y: 2}, pits: [{x: 2, y: 0}, {x: 0, y: 3}, {x: 2, y: 4}, {x: 4, y: 4}] }
+    ];
+
+    const DEFAULT_PYTHON_CODE = `def decide_action(breeze, stench, glitter, wall):
+    
+    return random.choice(["AVANZAR", "IZQUIERDA", "DERECHA"])
+`;
+
+    function WumpusWorld() {
+      const [board, setBoard] = useState([]);
+      const [agent, setAgent] = useState({ x: 0, y: 0, dir: 1, hasGold: false, hasArrow: true });
+      const [score, setScore] = useState(100);
+      const [status, setStatus] = useState('playing'); 
+      const [logs, setLogs] = useState([]);
+      const [mode, setMode] = useState('manual');
+      const [currentLevel, setCurrentLevel] = useState(0);
+      const [perceptions, setPerceptions] = useState({ breeze: false, stench: false, glitter: false, wall: false });
+      
+      const [pyodide, setPyodide] = useState(null);
+      const [pyCode, setPyCode] = useState(DEFAULT_PYTHON_CODE);
+      const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+      const [isLoadingPy, setIsLoadingPy] = useState(true);
+
+      const initGame = (levelIdx = currentLevel, startScore = 100) => {
+        const config = LEVELS[levelIdx];
+        let newBoard = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null).map(() => ({
+          hasWumpus: false, hasPit: false, hasGold: false,
+          isVisited: false, isBreezy: false, isStinky: false
+        })));
+
+        newBoard[config.wumpus.y][config.wumpus.x].hasWumpus = true;
+        newBoard[config.gold.y][config.gold.x].hasGold = true;
+        config.pits.forEach(p => newBoard[p.y][p.x].hasPit = true);
+
+        for (let y = 0; y < SIZE; y++) {
+          for (let x = 0; x < SIZE; x++) {
+            const neighbors = [
+              { nx: x, ny: y + 1 }, { nx: x + 1, ny: y },
+              { nx: x, ny: y - 1 }, { nx: x - 1, ny: y }
+            ];
+            neighbors.forEach(({ nx, ny }) => {
+              if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
+                if (newBoard[ny][nx].hasWumpus) newBoard[y][x].isStinky = true;
+                if (newBoard[ny][nx].hasPit) newBoard[y][x].isBreezy = true;
+              }
+            });
+          }
+        }
+
+        newBoard[0][0].isVisited = true;
+        setBoard(newBoard);
+        setCurrentLevel(levelIdx);
+        setScore(startScore);
+        setAgent({ x: 0, y: 0, dir: 1, hasGold: false, hasArrow: true });
+        setStatus('playing');
+        setLogs([`Nivel ${levelIdx + 1} iniciado. Te encuentras en la entrada (1,1).`]);
+        setIsAutoPlaying(false);
+        updatePerceptions(0, 0, 1, newBoard);
+      };
+
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if (mode !== 'manual' || status !== 'playing') return;
+          
+          let handled = true;
+          switch(e.key) {
+            case 'ArrowUp': handleAction('MOVER_HACIA', 0); break;
+            case 'ArrowRight': handleAction('MOVER_HACIA', 1); break;
+            case 'ArrowDown': handleAction('MOVER_HACIA', 2); break;
+            case 'ArrowLeft': handleAction('MOVER_HACIA', 3); break;
+            case 'a': case 'A': handleAction('ATACAR'); break;
+            case 's': case 'S': handleAction('AGARRAR'); break;
+            default: handled = false;
+          }
+          if (handled) e.preventDefault();
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [mode, status, agent, board, currentLevel, score]);
+
+      useEffect(() => {
+        initGame(0, 100);
+        const loadPy = async () => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js';
+          script.onload = async () => {
+            const py = await window.loadPyodide();
+            setPyodide(py);
+            setIsLoadingPy(false);
+          };
+          document.body.appendChild(script);
+        };
+        loadPy();
+      }, []);
+
+      const addLog = (msg) => setLogs(prev => [msg, ...prev].slice(0, 50));
+
+      const updatePerceptions = (x, y, dir, currentBoard) => {
+        const frontX = x + DIRS[dir].dx;
+        const frontY = y + DIRS[dir].dy;
+        const isWall = frontX < 0 || frontX >= SIZE || frontY < 0 || frontY >= SIZE;
         
-        <div class="flex flex-col items-center w-full">
-            <h1 class="text-4xl font-bold text-[#00E5FF] mb-2 tracking-tight drop-shadow-[0_0_8px_rgba(0,229,255,0.5)]">Neural Flappy</h1>
-            <p class="text-[#898B4B] mb-6 text-sm text-center">Fase 1: Recolecta. Fase 2: Diseña. Fase 3: Observa.</p>
-            
-            <div class="relative bg-[#27272B] p-3 rounded-xl border border-[#464849] shadow-[0_0_30px_rgba(0,229,255,0.1)]">
-                <canvas id="gameCanvas" width="400" height="500" class="rounded-lg bg-[#151518] w-full max-w-[400px] border border-[#464849] cursor-pointer"></canvas>
-                
-                <div id="gameOverlay" class="absolute inset-0 flex items-center justify-center pointer-events-none hidden">
-                    <h2 id="overlayText" class="text-3xl font-bold text-[#F9E40B] bg-[#1B1B1E]/90 px-6 py-3 rounded-lg border border-[#F3DA4B] shadow-lg">¡JUEGO TERMINADO!</h2>
-                </div>
-            </div>
+        // Glitter detecta si hay oro enfrente
+        const isFrontGold = !isWall && currentBoard[frontY][frontX].hasGold;
 
-            <div class="mt-6 flex gap-8 text-center bg-[#27272B] px-8 py-3 rounded-xl border border-[#464849]">
-                <div>
-                    <p class="text-xs text-[#898B4B] uppercase tracking-wider">Puntuación</p>
-                    <p id="scoreDisplay" class="text-3xl text-[#00E5FF] font-bold">0</p>
-                </div>
-                <div class="w-px bg-[#464849]"></div>
-                <div>
-                    <p class="text-xs text-[#898B4B] uppercase tracking-wider">Dificultad</p>
-                    <p id="diffDisplay" class="text-3xl text-[#CBC9C2] font-bold">1</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="flex flex-col gap-6 w-full">
-            
-            <div class="bg-[#27272B] p-6 rounded-xl shadow-lg border border-[#464849]">
-                
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-                    <button id="tabHuman" class="tab-btn bg-[#213536] text-[#00E5FF] py-3 px-2 rounded-lg transition-all font-semibold shadow-[0_0_10px_rgba(0,229,255,0.2)] border border-[#00E5FF] text-sm">
-                        1. Jugar (Humano)
-                    </button>
-                    <button id="tabDesign" class="tab-btn bg-[#1B1B1E] text-[#898B4B] py-3 px-2 rounded-lg transition-all font-semibold border border-[#464849] hover:border-[#898B4B] text-sm">
-                        2. Diseñar AI
-                    </button>
-                    <button id="tabAI" class="tab-btn bg-[#1B1B1E] text-[#464849] py-3 px-2 rounded-lg transition-all font-semibold border border-[#464849] cursor-not-allowed text-sm" disabled>
-                        3. Jugar (IA)
-                    </button>
-                </div>
-
-                <div id="panelContainer" class="min-h-[250px]">
-                    
-                    <div id="contentHuman" class="tab-content active">
-                        <h3 class="text-sm font-semibold text-[#CBC9C2] mb-3 border-b border-[#464849] pb-2">Sentidos (Entradas de la IA)</h3>
-                        <p class="text-xs text-[#898B4B] mb-3">Elige qué datos registrarás. Si cambias esto, los datos actuales se borrarán.</p>
-                        <div class="grid grid-cols-2 gap-2 text-xs text-[#CBC9C2] mb-5">
-                            <label class="flex items-center gap-2 hover:text-[#00E5FF] cursor-pointer"><input type="checkbox" id="chkDistX" checked class="accent-[#00E5FF] input-sense"> Dist. X al tubo</label>
-                            <label class="flex items-center gap-2 hover:text-[#00E5FF] cursor-pointer"><input type="checkbox" id="chkDistY" checked class="accent-[#00E5FF] input-sense"> Dist. Y al hueco</label>
-                            <label class="flex items-center gap-2 hover:text-[#00E5FF] cursor-pointer"><input type="checkbox" id="chkVel" checked class="accent-[#00E5FF] input-sense"> Velocidad dron</label>
-                            <label class="flex items-center gap-2 hover:text-[#00E5FF] cursor-pointer"><input type="checkbox" id="chkPosY" class="accent-[#00E5FF] input-sense"> Altura Absoluta</label>
-                        </div>
-
-                        <div class="bg-[#1B1B1E] p-4 rounded-lg border border-[#464849] flex justify-between items-center">
-                            <div>
-                                <p class="text-sm text-[#CBC9C2]">Datos recolectados:</p>
-                                <p class="text-2xl font-bold text-[#00E5FF]" id="dataCount">0 <span class="text-sm font-normal text-[#898B4B]">frames</span></p>
-                            </div>
-                            <button id="btnResetData" class="text-xs text-[#898B4B] hover:text-[#F9E40B] underline transition-colors">Borrar Datos</button>
-                        </div>
-                        <div class="mt-3 bg-[#1B1B1E] border border-[#464849] rounded-lg p-2 h-20 overflow-y-auto text-xs font-mono text-[#898B4B] flex flex-col gap-1 shadow-inner" id="dataLog">
-                            <div class="text-center text-[#464849] mt-4">Juega para recolectar datos...</div>
-                        </div>
-                    </div>
-
-                    <div id="contentDesign" class="tab-content">
-                        <h3 class="text-sm font-semibold text-[#CBC9C2] mb-3 border-b border-[#464849] pb-2">Arquitectura de la Red</h3>
-                        
-                        <div class="grid grid-cols-2 gap-6 mb-4">
-                            <div>
-                                <label class="text-sm text-[#898B4B] flex justify-between mb-2">
-                                    <span>Capas Ocultas</span> <span id="valLayers" class="text-[#00E5FF] font-bold">1</span>
-                                </label>
-                                <input type="range" id="slLayers" min="1" max="3" value="1" class="w-full accent-[#00E5FF]">
-                            </div>
-                            <div>
-                                <label class="text-sm text-[#898B4B] flex justify-between mb-2">
-                                    <span>Neuronas/Capa</span> <span id="valNeurons" class="text-[#00E5FF] font-bold">6</span>
-                                </label>
-                                <input type="range" id="slNeurons" min="2" max="12" value="6" class="w-full accent-[#00E5FF]">
-                            </div>
-                        </div>
-
-                        <h3 class="text-sm font-semibold text-[#CBC9C2] mb-3 border-b border-[#464849] pb-2 mt-6">Hiperparámetros</h3>
-                        <div class="grid grid-cols-2 gap-4 mb-6">
-                            <div>
-                                <label class="text-xs text-[#898B4B]">Tasa Aprendizaje (LR)</label>
-                                <select id="selLR" class="w-full bg-[#1B1B1E] text-[#CBC9C2] border border-[#464849] rounded p-2 text-sm mt-1 outline-none focus:border-[#00E5FF]">
-                                    <option value="0.05">0.05 (Lento)</option>
-                                    <option value="0.25" selected>0.25 (Normal)</option>
-                                    <option value="0.5">0.50 (Rápido)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-xs text-[#898B4B]">Épocas de Entrenamiento</label>
-                                <select id="selEpochs" class="w-full bg-[#1B1B1E] text-[#CBC9C2] border border-[#464849] rounded p-2 text-sm mt-1 outline-none focus:border-[#00E5FF]">
-                                    <option value="500">500</option>
-                                    <option value="1500" selected>1500</option>
-                                    <option value="3000">3000</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <button id="btnTrain" class="w-full bg-[#464849] hover:bg-[#00E5FF] hover:text-[#1B1B1E] text-[#CBC9C2] py-3 rounded-lg transition-all font-bold text-sm shadow-md">
-                            INICIAR ENTRENAMIENTO
-                        </button>
-
-                        <div id="trainProgressContainer" class="hidden mt-4">
-                            <div class="flex justify-between text-xs mb-1 text-[#CBC9C2]">
-                                <span>Entrenando...</span> <span id="trainPercent">0%</span>
-                            </div>
-                            <div class="w-full bg-[#1B1B1E] rounded-full h-3 border border-[#464849]">
-                                <div id="trainProgressBar" class="bg-[#00E5FF] h-full rounded-full transition-all duration-100 shadow-[0_0_10px_rgba(0,229,255,0.5)]" style="width: 0%"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="contentAI" class="tab-content">
-                        <div class="flex flex-col items-center justify-center h-full py-8 text-center">
-                            <svg class="w-16 h-16 text-[#00E5FF] mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                            <h3 class="text-xl font-bold text-[#00E5FF] mb-2">IA al mando</h3>
-                            <p class="text-sm text-[#898B4B]">Observa cómo la red neuronal toma decisiones en tiempo real en el panel inferior.</p>
-                        </div>
-                    </div>
-
-                </div>
-
-                <div id="statusMessage" class="mt-4 text-sm text-[#00E5FF] bg-[#00E5FF]/10 border border-[#00E5FF]/30 p-3 rounded-lg text-center">
-                    Modo Humano: Usa Espacio para saltar y generar datos.
-                </div>
-            </div>
-
-            <div id="brainPanel" class="bg-[#27272B] p-6 rounded-xl shadow-lg border border-[#464849] flex-1 flex-col transition-all">
-                <div class="flex justify-between items-end mb-4">
-                    <h2 class="text-xl font-semibold text-[#CBC9C2]">Neural Network</h2>
-                    <span class="flex h-3 w-3 relative">
-                      <span id="aiActivePing" class="absolute inline-flex h-full w-full rounded-full bg-[#00E5FF] opacity-0"></span>
-                      <span class="relative inline-flex rounded-full h-3 w-3 bg-[#464849]" id="aiActiveDot"></span>
-                    </span>
-                </div>
-                <div class="w-full flex justify-center bg-[#1B1B1E] p-4 rounded-lg border border-[#464849] relative min-h-[200px]">
-                    <canvas id="nnCanvas" width="400" height="200" class="max-w-full"></canvas>
-                </div>
-                <p id="nnDesc" class="text-xs text-[#898B4B] mt-4 text-center">
-                    Nodos: Esperando configuración...
-                </p>
-            </div>
-
-        </div>
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            
-            // --- RED NEURONAL MULTICAPA (MLP) ---
-            function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
-            
-            class MultiLayerPerceptron {
-                constructor(layerSizes) {
-                    this.sizes = layerSizes;
-                    this.numLayers = layerSizes.length;
-                    this.weights = []; this.biases = [];
-                    for(let i = 0; i < this.numLayers - 1; i++) {
-                        let rows = layerSizes[i + 1], cols = layerSizes[i];
-                        this.weights.push(Array(rows).fill().map(() => Array(cols).fill().map(() => Math.random() * 2 - 1)));
-                        this.biases.push(Array(rows).fill().map(() => Math.random() * 2 - 1));
-                    }
-                    this.lastActivations = Array(this.numLayers).fill().map((_, i) => Array(layerSizes[i]).fill(0));
-                }
-                predict(inputs) {
-                    let a = [...inputs]; this.lastActivations[0] = [...a];
-                    for(let i = 0; i < this.numLayers - 1; i++) {
-                        let next_a = Array(this.sizes[i + 1]).fill(0);
-                        for(let r = 0; r < this.sizes[i + 1]; r++) {
-                            let sum = 0;
-                            for(let c = 0; c < this.sizes[i]; c++) sum += a[c] * this.weights[i][r][c];
-                            next_a[r] = sigmoid(sum + this.biases[i][r]);
-                        }
-                        a = next_a; this.lastActivations[i + 1] = [...a];
-                    }
-                    return a;
-                }
-                train(inputs, targets, lr) {
-                    this.predict(inputs);
-                    let errors = Array(this.numLayers - 1).fill().map(() => []);
-                    let out_a = this.lastActivations[this.numLayers - 1];
-                    errors[this.numLayers - 2] = targets.map((t, idx) => t - out_a[idx]);
-
-                    for(let i = this.numLayers - 3; i >= 0; i--) {
-                        let err = Array(this.sizes[i + 1]).fill(0);
-                        for(let r = 0; r < this.sizes[i + 1]; r++) {
-                            for(let n = 0; n < this.sizes[i + 2]; n++) err[r] += errors[i + 1][n] * this.weights[i + 1][n][r];
-                        }
-                        errors[i] = err;
-                    }
-
-                    for(let i = 0; i < this.numLayers - 1; i++) {
-                        let a = this.lastActivations[i], next_a = this.lastActivations[i + 1], err = errors[i];
-                        for(let r = 0; r < this.sizes[i + 1]; r++) {
-                            let gradient = next_a[r] * (1 - next_a[r]) * err[r] * lr;
-                            this.biases[i][r] += gradient;
-                            for(let c = 0; c < this.sizes[i]; c++) this.weights[i][r][c] += gradient * a[c];
-                        }
-                    }
-                }
-            }
-
-            // --- INICIALIZACIÓN ---
-            const cvs = document.getElementById('gameCanvas'); const ctx = cvs.getContext('2d');
-            const nnCvs = document.getElementById('nnCanvas'); const nnCtx = nnCvs.getContext('2d');
-
-            let nn = new MultiLayerPerceptron([3, 6, 1]); 
-
-            let frames = 0, score = 0, difficulty = 1, gameSpeed = 3, pipeSpawnRate = 100;
-            let gameState = 'MANUAL_PLAY'; let collectedData = []; let userWantsToJump = false;
-
-            // --- UI Y PESTAÑAS ---
-            const tabs = {
-                human: { btn: document.getElementById('tabHuman'), content: document.getElementById('contentHuman') },
-                design: { btn: document.getElementById('tabDesign'), content: document.getElementById('contentDesign') },
-                ai: { btn: document.getElementById('tabAI'), content: document.getElementById('contentAI') }
-            };
-
-            function switchTab(tabName) {
-                Object.values(tabs).forEach(t => {
-                    t.content.classList.remove('active');
-                    t.btn.classList.remove('bg-[#213536]', 'text-[#00E5FF]', 'shadow-[0_0_10px_rgba(0,229,255,0.2)]', 'border-[#00E5FF]');
-                    if(!t.btn.disabled) t.btn.classList.add('bg-[#1B1B1E]', 'text-[#898B4B]', 'border-[#464849]');
-                });
-
-                let active = tabs[tabName]; active.content.classList.add('active');
-                active.btn.classList.remove('bg-[#1B1B1E]', 'text-[#898B4B]', 'border-[#464849]');
-                active.btn.classList.add('bg-[#213536]', 'text-[#00E5FF]', 'shadow-[0_0_10px_rgba(0,229,255,0.2)]', 'border-[#00E5FF]');
-
-                if(tabName === 'human') {
-                    resetGame('MANUAL_PLAY'); setStatus("Modo Humano: Usa Espacio para saltar y generar datos.");
-                    document.getElementById('aiActivePing').classList.remove('animate-ping'); document.getElementById('aiActivePing').classList.add('opacity-0');
-                    document.getElementById('aiActiveDot').classList.replace('bg-[#00E5FF]', 'bg-[#464849]');
-                } else if(tabName === 'design') {
-                    resetGame('IDLE'); setStatus("Diseño: Configura la arquitectura. La red visual se actualiza en tiempo real.");
-                    document.getElementById('aiActivePing').classList.remove('animate-ping', 'opacity-0');
-                    document.getElementById('aiActiveDot').classList.replace('bg-[#00E5FF]', 'bg-[#464849]');
-                    updateArchitecture(); 
-                } else if(tabName === 'ai') {
-                    resetGame('AI_PLAY'); setStatus("Modo IA: Observa las activaciones en la Neural Network.");
-                    document.getElementById('aiActivePing').classList.add('animate-ping'); document.getElementById('aiActivePing').classList.remove('opacity-0');
-                    document.getElementById('aiActiveDot').classList.replace('bg-[#464849]', 'bg-[#00E5FF]');
-                }
-            }
-
-            tabs.human.btn.addEventListener('click', () => switchTab('human'));
-            tabs.design.btn.addEventListener('click', () => switchTab('design'));
-            tabs.ai.btn.addEventListener('click', () => { if(!tabs.ai.btn.disabled) switchTab('ai'); });
-
-            // --- LÓGICA DE ARQUITECTURA (DISEÑO) ---
-            const slLayers = document.getElementById('slLayers'); const valLayers = document.getElementById('valLayers');
-            const slNeurons = document.getElementById('slNeurons'); const valNeurons = document.getElementById('valNeurons');
-            const checkboxes = document.querySelectorAll('.input-sense');
-
-            function getInputsCount() { let count = 0; checkboxes.forEach(chk => { if(chk.checked) count++; }); return count; }
-
-            function updateArchitecture() {
-                valLayers.innerText = slLayers.value; valNeurons.innerText = slNeurons.value;
-                let inputsCount = getInputsCount();
-                
-                let numLayers = parseInt(slLayers.value); let numNeurons = parseInt(slNeurons.value);
-                let structure = [inputsCount]; for(let i=0; i<numLayers; i++) structure.push(numNeurons); structure.push(1); 
-
-                nn = new MultiLayerPerceptron(structure);
-                document.getElementById('nnDesc').innerText = `Estructura: ${structure.join(' → ')}`;
-                tabs.ai.btn.disabled = true; tabs.ai.btn.classList.add('cursor-not-allowed', 'text-[#464849]'); tabs.ai.btn.classList.remove('hover:border-[#898B4B]');
-                drawNN(); 
-            }
-
-            slLayers.addEventListener('input', updateArchitecture); slNeurons.addEventListener('input', updateArchitecture);
-            
-            // VALIDACIÓN DE CHECKBOXES (No dejar que sean 0)
-            checkboxes.forEach(chk => {
-                chk.addEventListener('change', (e) => {
-                    let inputsCount = getInputsCount();
-                    if(inputsCount === 0) {
-                        e.target.checked = true; // Revertir acción
-                        setStatus("¡La IA se quedaría ciega! Debe tener al menos un sentido activado.", true);
-                        return;
-                    }
-                    collectedData = []; document.getElementById('dataCount').innerText = 0;
-                    document.getElementById('dataLog').innerHTML = '<div class="text-center text-[#464849] mt-4">Datos borrados por cambio de sentidos.</div>';
-                    updateArchitecture();
-                });
-            });
-
-            document.getElementById('btnResetData').addEventListener('click', () => {
-                collectedData = []; document.getElementById('dataCount').innerText = 0;
-                document.getElementById('dataLog').innerHTML = '<div class="text-center text-[#464849] mt-4">Juega para recolectar datos...</div>';
-            });
-
-            // --- EFECTO DE FONDO (NUEVO) ---
-            class Background {
-                constructor() {
-                    this.stars = Array(60).fill().map(() => ({ x: Math.random() * 400, y: Math.random() * 500, size: Math.random() * 1.5 + 0.5, speed: Math.random() * 0.3 + 0.1 }));
-                    this.buildings = [];
-                    for(let i=0; i<15; i++) this.buildings.push({ x: i * 35, w: 25 + Math.random() * 20, h: 10 + Math.random() * 80 });
-                }
-                draw(ctx, speedMult) {
-                    ctx.fillStyle = '#FFFFFF';
-                    this.stars.forEach(s => {
-                        s.x -= s.speed * speedMult; if(s.x < 0) s.x = 400;
-                        ctx.globalAlpha = s.speed; ctx.fillRect(s.x, s.y, s.size, s.size);
-                    });
-                    ctx.globalAlpha = 1.0;
-                    ctx.fillStyle = '#1D1D21'; // Edificios muy oscuros
-                    this.buildings.forEach(b => {
-                        b.x -= 0.8 * speedMult;
-                        if(b.x + b.w < 0) { b.x = 400; b.h = 10 + Math.random() * 80; }
-                        ctx.fillRect(b.x, 500 - b.h, b.w, b.h);
-                    });
-                }
-            }
-
-            // --- CLASES DEL JUEGO ---
-            class DroneBird {
-                constructor() {
-                    this.x = 60; this.y = cvs.height / 2;
-                    this.velocity = 0; this.gravity = 0.4; this.jumpStrength = 6.5;
-                    this.radius = 12; this.frameCount = 0;
-                }
-                update() { this.velocity += this.gravity; this.y += this.velocity; }
-                jump() { this.velocity = -this.jumpStrength; }
-                draw() {
-                    this.frameCount++; ctx.save(); ctx.translate(this.x, this.y);
-                    let rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (this.velocity * 0.1))); ctx.rotate(rotation);
-
-                    // Propulsor (Fuego)
-                    if (this.velocity < 0) {
-                        ctx.fillStyle = '#00E5FF';
-                        ctx.beginPath(); ctx.ellipse(-16, 2, 6 + Math.random()*5, 3, 0, 0, Math.PI*2); ctx.fill();
-                    }
-
-                    // Cuerpo principal
-                    ctx.fillStyle = '#27272B';
-                    ctx.beginPath(); ctx.ellipse(0, 0, 16, 10, 0, 0, Math.PI*2); ctx.fill();
-                    ctx.lineWidth = 2; ctx.strokeStyle = '#464849'; ctx.stroke();
-
-                    // Visor Neon
-                    ctx.fillStyle = '#00E5FF';
-                    ctx.beginPath(); ctx.ellipse(8, -2, 5, 7, Math.PI/6, 0, Math.PI*2); ctx.fill();
-                    ctx.shadowBlur = 10; ctx.shadowColor = '#00E5FF';
-                    ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(9, -4, 1.5, 0, Math.PI*2); ctx.fill();
-                    ctx.shadowBlur = 0;
-
-                    // Ala robótica
-                    let flap = Math.sin(this.frameCount * 0.5) * 4;
-                    ctx.fillStyle = '#1B1B1E';
-                    ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(4, 0); ctx.lineTo(-1, 8 + flap); ctx.closePath();
-                    ctx.fill(); ctx.stroke();
-
-                    ctx.restore();
-                }
-            }
-
-            class CyberPipe {
-                constructor() {
-                    this.x = cvs.width; this.w = 50; this.gap = Math.max(75, 160 - (difficulty * 12));
-                    this.topH = Math.random() * (cvs.height - this.gap - 60) + 30; this.bottomY = this.topH + this.gap; this.passed = false;
-                }
-                update() { this.x -= gameSpeed; }
-                draw() {
-                    let bodyColor = '#1B1B1E', borderColor = '#00E5FF', highlightColor = '#27272B';
-                    ctx.lineWidth = 2; let capH = 20, capW = this.w + 8, capOffsetX = -4;
-                    
-                    // Tubo superior
-                    ctx.fillStyle = bodyColor; ctx.strokeStyle = borderColor; 
-                    ctx.fillRect(this.x, 0, this.w, this.topH - capH); ctx.strokeRect(this.x, 0, this.w, this.topH - capH);
-                    ctx.fillStyle = highlightColor; ctx.fillRect(this.x + 5, 0, 4, this.topH - capH);
-                    // Tapa sup
-                    ctx.fillStyle = bodyColor; ctx.fillRect(this.x + capOffsetX, this.topH - capH, capW, capH); ctx.strokeRect(this.x + capOffsetX, this.topH - capH, capW, capH);
-                    
-                    // Tubo inferior
-                    let bottomH = cvs.height - this.bottomY;
-                    ctx.fillStyle = bodyColor; ctx.fillRect(this.x, this.bottomY + capH, this.w, bottomH - capH); ctx.strokeRect(this.x, this.bottomY + capH, this.w, bottomH - capH);
-                    ctx.fillStyle = highlightColor; ctx.fillRect(this.x + 5, this.bottomY + capH, 4, bottomH - capH);
-                    // Tapa inf
-                    ctx.fillStyle = bodyColor; ctx.fillRect(this.x + capOffsetX, this.bottomY, capW, capH); ctx.strokeRect(this.x + capOffsetX, this.bottomY, capW, capH);
-                }
-            }
-
-            let bg = new Background();
-            let bird = new DroneBird(); let pipes = [];
-
-            function setStatus(msg, isAlert = false) {
-                const el = document.getElementById('statusMessage'); el.innerText = msg;
-                if(isAlert) { el.classList.replace('bg-[#00E5FF]/10', 'bg-[#F9E40B]/20'); el.classList.replace('border-[#00E5FF]/30', 'border-[#F9E40B]'); el.classList.replace('text-[#00E5FF]', 'text-[#F9E40B]'); } 
-                else { el.classList.replace('bg-[#F9E40B]/20', 'bg-[#00E5FF]/10'); el.classList.replace('border-[#F9E40B]', 'border-[#00E5FF]/30'); el.classList.replace('text-[#F9E40B]', 'text-[#00E5FF]'); }
-            }
-
-            function resetGame(mode) {
-                bird = new DroneBird(); pipes = []; score = 0; difficulty = 1; gameSpeed = 3.5; pipeSpawnRate = 100; frames = 0; gameState = mode;
-                document.getElementById('scoreDisplay').innerText = score; document.getElementById('diffDisplay').innerText = difficulty;
-                document.getElementById('gameOverlay').classList.add('hidden');
-            }
-
-            function checkCollisions() {
-                if(bird.y + bird.radius >= cvs.height || bird.y - bird.radius <= 0) return true;
-                for(let p of pipes) { let bx = bird.x, by = bird.y, r = bird.radius * 0.8; if(bx + r > p.x && bx - r < p.x + p.w) { if(by - r < p.topH || by + r > p.bottomY) return true; } }
-                return false;
-            }
-
-            function balanceData(data) {
-                let jumps = data.filter(d => d.targets[0] === 1); let nonJumps = data.filter(d => d.targets[0] === 0);
-                if(jumps.length < 5) return null; let limit = jumps.length; nonJumps.sort(() => Math.random() - 0.5);
-                return jumps.concat(nonJumps.slice(0, Math.min(limit, nonJumps.length)));
-            }
-
-            // --- ENTRENAMIENTO ---
-            document.getElementById('btnTrain').addEventListener('click', () => {
-                if(collectedData.length < 50) { setStatus("¡Necesitas al menos 50 datos! Ve a la pestaña '1. Humano' y juega.", true); return; }
-                let dataset = balanceData(collectedData);
-                if(!dataset) { setStatus("Error: Registraste muy pocos saltos reales. Juega normal.", true); return; }
-                
-                gameState = 'TRAINING'; setStatus("Entrenando la red neuronal multicapa...");
-                document.getElementById('trainProgressContainer').classList.remove('hidden'); document.getElementById('btnTrain').disabled = true;
-                
-                let epochs = parseInt(document.getElementById('selEpochs').value); let lr = parseFloat(document.getElementById('selLR').value); let currentEpoch = 0;
-                
-                function batchTrain() {
-                    let stepsPerFrame = Math.max(5, Math.floor(epochs / 100));
-                    for(let k=0; k<stepsPerFrame; k++) {
-                        if(currentEpoch >= epochs) { 
-                            gameState = 'IDLE'; setStatus("¡Entrenamiento completado! Pestaña '3. Jugar (IA)' desbloqueada.");
-                            setTimeout(() => { document.getElementById('trainProgressContainer').classList.add('hidden'); }, 1500);
-                            tabs.ai.btn.disabled = false; tabs.ai.btn.classList.remove('cursor-not-allowed', 'text-[#464849]'); tabs.ai.btn.classList.add('hover:border-[#898B4B]');
-                            document.getElementById('btnTrain').disabled = false; return; 
-                        }
-                        dataset.sort(() => Math.random() - 0.5); for(let d of dataset) nn.train(d.inputs, d.targets, lr); currentEpoch++;
-                    }
-                    let pct = Math.floor((currentEpoch / epochs) * 100);
-                    document.getElementById('trainProgressBar').style.width = pct + '%'; document.getElementById('trainPercent').innerText = pct + '%';
-                    requestAnimationFrame(batchTrain);
-                }
-                requestAnimationFrame(batchTrain);
-            });
-
-            // --- DIBUJO RED NEURONAL MULTICAPA ---
-            function drawNN() {
-                nnCtx.clearRect(0, 0, nnCvs.width, nnCvs.height);
-                const layers = nn.sizes; const nodeRadius = Math.max(4, 12 - (Math.max(...layers) * 0.4)); 
-                const paddingX = nnCvs.width / (layers.length + 1);
-                let positions = []; 
-                for (let l = 0; l < layers.length; l++) {
-                    let layerPos = []; let spacingY = nnCvs.height / (layers[l] + 1); let x = paddingX * (l + 1);
-                    for (let n = 0; n < layers[l]; n++) layerPos.push({ x: x, y: spacingY * (n + 1), act: nn.lastActivations[l] ? nn.lastActivations[l][n] : 0 });
-                    positions.push(layerPos);
-                }
-                nnCtx.lineWidth = 1; nnCtx.strokeStyle = 'rgba(70, 72, 73, 0.4)';
-                for (let l = 0; l < positions.length - 1; l++) {
-                    let currentLayer = positions[l]; let nextLayer = positions[l+1];
-                    for(let i=0; i<currentLayer.length; i++) { for(let j=0; j<nextLayer.length; j++) { nnCtx.beginPath(); nnCtx.moveTo(currentLayer[i].x, currentLayer[i].y); nnCtx.lineTo(nextLayer[j].x, nextLayer[j].y); nnCtx.stroke(); } }
-                }
-                for (let l = 0; l < positions.length; l++) {
-                    for (let n = 0; n < positions[l].length; n++) {
-                        let node = positions[l][n];
-                        nnCtx.beginPath(); nnCtx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2);
-                        let act = Math.max(0, Math.min(1, node.act)); 
-                        // Color base a Cyan oscuro si act = 0, Cyan brillante si act = 1
-                        let r = Math.round(27 + (0 - 27) * act), g = Math.round(27 + (229 - 27) * act), b = Math.round(30 + (255 - 30) * act);
-                        nnCtx.fillStyle = `rgb(${r},${g},${b})`; nnCtx.fill();
-                        if(act > 0.8 && gameState === 'AI_PLAY') { nnCtx.shadowBlur = 10; nnCtx.shadowColor = '#00E5FF'; }
-                        nnCtx.strokeStyle = '#CBC9C2'; nnCtx.stroke(); nnCtx.shadowBlur = 0;
-                    }
-                }
-            }
-
-            function getActiveInputs(closestPipe, gapCenterY) {
-                let inputs = [];
-                if(document.getElementById('chkDistX').checked) inputs.push((closestPipe.x + closestPipe.w - bird.x) / cvs.width);
-                if(document.getElementById('chkDistY').checked) inputs.push((bird.y - gapCenterY) / cvs.height);
-                if(document.getElementById('chkVel').checked) inputs.push(bird.velocity / 10);
-                if(document.getElementById('chkPosY').checked) inputs.push(bird.y / cvs.height);
-                return inputs;
-            }
-
-            function gameLoop() {
-                ctx.clearRect(0, 0, cvs.width, cvs.height);
-                
-                // Dibujar fondo animado (Lento si está en reposo, rápido si juega)
-                bg.draw(ctx, (gameState === 'IDLE' || gameState === 'GAME_OVER') ? 0.3 : 1);
-
-                if(gameState === 'MANUAL_PLAY' || gameState === 'AI_PLAY') {
-                    if(frames % pipeSpawnRate === 0) pipes.push(new CyberPipe());
-
-                    let closestPipe = pipes.find(p => p.x + p.w > bird.x - bird.radius);
-                    if(!closestPipe) closestPipe = { x: cvs.width, w: 50, topH: 0, bottomY: cvs.height, gap: cvs.height };
-
-                    let gapCenterY = closestPipe.topH + (closestPipe.bottomY - closestPipe.topH) / 2;
-                    let inputs = getActiveInputs(closestPipe, gapCenterY);
-                    let output = nn.predict(inputs);
-
-                    if(gameState === 'MANUAL_PLAY') {
-                        let action = userWantsToJump ? 1 : 0;
-                        if(userWantsToJump || frames % 3 === 0) {
-                            collectedData.push({ inputs: inputs, targets: [action] }); document.getElementById('dataCount').innerText = collectedData.length;
-                            let logEl = document.getElementById('dataLog'); if (logEl.children.length > 0 && logEl.children[0].innerText.includes('Juega')) logEl.innerHTML = '';
-                            let row = document.createElement('div'); row.innerText = `In:[${inputs.map(n => n.toFixed(2)).join(',')}] → ${action === 1 ? 'SALTA' : '-'}`;
-                            if(action === 1) row.classList.add('text-[#00E5FF]', 'font-bold'); else row.classList.add('text-[#898B4B]');
-                            logEl.prepend(row); if(logEl.children.length > 100) logEl.removeChild(logEl.lastChild);
-                        }
-                        if (userWantsToJump) { bird.jump(); userWantsToJump = false; }
-                    } else if(gameState === 'AI_PLAY') {
-                        if(output[0] > 0.5 && bird.velocity >= -2) bird.jump();
-                    }
-
-                    bird.update(); bird.draw();
-
-                    for(let i = pipes.length - 1; i >= 0; i--) {
-                        pipes[i].update(); pipes[i].draw();
-                        if(!pipes[i].passed && pipes[i].x + pipes[i].w < bird.x) {
-                            score++; pipes[i].passed = true; document.getElementById('scoreDisplay').innerText = score;
-                            if(score % 4 === 0) { difficulty++; document.getElementById('diffDisplay').innerText = difficulty; }
-                        }
-                        if(pipes[i].x + pipes[i].w < 0) pipes.splice(i, 1);
-                    }
-
-                    if(checkCollisions()) {
-                        gameState = 'GAME_OVER'; document.getElementById('gameOverlay').classList.remove('hidden'); document.getElementById('overlayText').innerText = "¡SISTEMA CAÍDO!";
-                        setStatus(gameState === 'AI_PLAY' ? "La IA falló. Intenta agregar más capas/neuronas o más datos limpios." : "Fin del juego. Ve a la pestaña Diseñar para entrenar.", true);
-                    }
-                    frames++;
-
-                } else if (gameState === 'IDLE' || gameState === 'GAME_OVER') {
-                    bird.draw(); for(let p of pipes) p.draw();
-                }
-
-                drawNN();
-                requestAnimationFrame(gameLoop);
-            }
-
-            function triggerJump() {
-                if(gameState === 'MANUAL_PLAY') userWantsToJump = true;
-                else if (gameState === 'IDLE' || gameState === 'GAME_OVER') {
-                    if (tabs.human.content.classList.contains('active')) resetGame('MANUAL_PLAY');
-                }
-            }
-
-            window.addEventListener('keydown', (e) => { if(e.code === 'Space' || e.code === 'ArrowUp') { triggerJump(); e.preventDefault(); } });
-            cvs.addEventListener('mousedown', triggerJump); cvs.addEventListener('touchstart', (e) => { triggerJump(); e.preventDefault(); }, {passive: false});
-
-            updateArchitecture(); switchTab('human'); gameLoop();
+        setPerceptions({
+          breeze: currentBoard[y][x].isBreezy,
+          stench: currentBoard[y][x].isStinky,
+          glitter: isFrontGold,
+          wall: isWall
         });
-    </script>
+      };
+
+      const handleAction = (actionStr, extraParam = null) => {
+        if (status !== 'playing') return;
+
+        let { x, y, dir, hasGold, hasArrow } = agent;
+        let newBoard = [...board];
+        let newStatus = 'playing';
+        let newScore = score - 1; 
+
+        if (actionStr === 'MOVER_HACIA') {
+          dir = extraParam;
+          actionStr = 'AVANZAR'; 
+        }
+
+        switch (actionStr) {
+          case 'AVANZAR':
+            const nx = x + DIRS[dir].dx;
+            const ny = y + DIRS[dir].dy;
+            if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
+              x = nx;
+              y = ny;
+              newBoard[y][x].isVisited = true;
+              addLog(`Avanzaste hacia el ${DIRS[dir].label} a (${x+1},${y+1}).`);
+              
+              if (newBoard[y][x].hasWumpus) {
+                newStatus = 'died-wumpus';
+                addLog('¡Oh no! Has sido devorado por el Wumpus.');
+                playSound('wumpus');
+              } else if (newBoard[y][x].hasPit) {
+                newStatus = 'died-pit';
+                addLog('¡Ahhh! Caíste en un pozo sin fondo.');
+                playSound('pit');
+              } else if (x === 0 && y === 0 && hasGold) {
+                newStatus = 'won';
+                addLog('¡VICTORIA! Lograste salir por la escalera con el oro.');
+                playSound('gold');
+              } else {
+                playSound('move');
+              }
+            } else {
+              addLog('¡Ouch! Chocaste con la pared. (-1 pt)');
+              playSound('bump');
+            }
+            break;
+          case 'IZQUIERDA':
+            dir = (dir + 3) % 4;
+            addLog('Giraste a la izquierda.');
+            playSound('move');
+            break;
+          case 'DERECHA':
+            dir = (dir + 1) % 4;
+            addLog('Giraste a la derecha.');
+            playSound('move');
+            break;
+          case 'AGARRAR':
+            let grabX = x + DIRS[dir].dx;
+            let grabY = y + DIRS[dir].dy;
+            
+            // Revisa si hay oro enfrente (acorde a la percepción de Glitter)
+            if (grabX >= 0 && grabX < SIZE && grabY >= 0 && grabY < SIZE && newBoard[grabY][grabX].hasGold) {
+              hasGold = true;
+              newBoard[grabY][grabX].hasGold = false;
+              newScore += 100;
+              addLog('¡Agarraste el lingote de enfrente! (+100 pts) (S) Ahora regresa a la escalera en (1,1).');
+              playSound('gold');
+            } else if (newBoard[y][x].hasGold) { // Fallback por si lo pisan
+              hasGold = true;
+              newBoard[y][x].hasGold = false;
+              newScore += 100;
+              addLog('¡Agarraste el lingote! (+100 pts) (S) Ahora regresa a la escalera en (1,1).');
+              playSound('gold');
+            } else {
+              addLog('Intentaste agarrar algo, pero no hay nada aquí ni enfrente. (-1 pt)');
+              playSound('bump');
+            }
+            break;
+          case 'ATACAR':
+            if (hasArrow) {
+              hasArrow = false;
+              addLog('¡Diste un poderoso espadazo mágico! (A)');
+              playSound('attack');
+              let tx = x + DIRS[dir].dx;
+              let ty = y + DIRS[dir].dy;
+              let hit = false;
+              while (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE) {
+                if (newBoard[ty][tx].hasWumpus) {
+                  hit = true;
+                  newBoard[ty][tx].hasWumpus = false;
+                  for (let ry = 0; ry < SIZE; ry++) {
+                    for (let rx = 0; rx < SIZE; rx++) {
+                      newBoard[ry][rx].isStinky = false;
+                    }
+                  }
+                  break;
+                }
+                tx += DIRS[dir].dx;
+                ty += DIRS[dir].dy;
+              }
+              if (hit) {
+                newScore += 50;
+                addLog('¡Escuchaste un grito aterrador! (+50 pts) Tu espada destruyó al Wumpus.');
+                playSound('scream');
+              } else {
+                addLog('Silencio... el rayo de tu espada no golpeó nada.');
+              }
+            } else {
+              addLog('Tu espada se ha quedado sin poder mágico. (-1 pt)');
+              playSound('bump');
+            }
+            break;
+          default:
+            addLog(`Acción desconocida: ${actionStr}`);
+        }
+
+        setScore(newScore);
+        setAgent({ x, y, dir, hasGold, hasArrow });
+        setBoard(newBoard);
+        setStatus(newStatus);
+        updatePerceptions(x, y, dir, newBoard);
+
+        if (newStatus !== 'playing') {
+          setIsAutoPlaying(false);
+        }
+      };
+
+      const executePythonStep = async () => {
+        if (!pyodide || status !== 'playing') return;
+        try {
+          await pyodide.runPythonAsync(`import random\n${pyCode}`);
+          const callStr = `decide_action(${perceptions.breeze ? 'True' : 'False'}, ${perceptions.stench ? 'True' : 'False'}, ${perceptions.glitter ? 'True' : 'False'}, ${perceptions.wall ? 'True' : 'False'})`;
+          const action = await pyodide.runPythonAsync(callStr);
+          if (typeof action === 'string') {
+            handleAction(action.toUpperCase());
+          } else {
+            addLog('Error: El script de Python no devolvió un string válido.');
+            setIsAutoPlaying(false);
+          }
+        } catch (err) {
+          addLog(`Error en Python: ${err.message.split('\n').pop()}`);
+          setIsAutoPlaying(false);
+        }
+      };
+
+      useEffect(() => {
+        let timer;
+        if (isAutoPlaying && status === 'playing') {
+          timer = setTimeout(() => {
+            executePythonStep();
+          }, 600);
+        }
+        return () => clearTimeout(timer);
+      }, [isAutoPlaying, agent, status]);
+
+      return (
+        <div style={{ backgroundColor: COLORS.bgMain, color: COLORS.lightText }} className="min-h-screen font-sans p-6 selection:bg-[#F3DA4B] selection:text-[#1B1B1E]">
+          <header className="max-w-[95%] 2xl:max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between mb-8 border-b border-[#464849] pb-4 gap-4">
+            <div className="flex items-center gap-3">
+              <Skull size={32} style={{ color: COLORS.accentStrong }} />
+              <h1 style={{ color: COLORS.accentWarm }} className="text-2xl md:text-3xl font-bold tracking-wider text-center md:text-left">
+                EL MUNDO DE WUMPUS - NIVEL {currentLevel + 1}
+              </h1>
+            </div>
+            
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 bg-[#27272B] px-4 py-2 rounded-xl border border-[#464849] shadow-inner">
+                <span className="text-xs font-bold text-[#CBC9C2] uppercase tracking-wider">Score</span>
+                <span className={`text-2xl font-black ${score < 0 ? 'text-red-400' : 'text-[#F9E40B]'}`}>{score}</span>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => initGame(currentLevel, 100)} style={{ backgroundColor: COLORS.panel }} className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-[#606C43] transition-colors font-semibold">
+                  <RefreshCw size={18} /> Reiniciar Nivel
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <main className="max-w-[95%] 2xl:max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <section className="lg:col-span-7 flex flex-col gap-4 items-center">
+              
+              <div style={{ backgroundColor: COLORS.panel }} className="p-4 md:p-6 rounded-2xl shadow-2xl relative w-full max-w-[65vh]">
+                {status !== 'playing' && (
+                  <div className="absolute inset-0 z-30 bg-[#1B1B1E]/60 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center transition-all duration-500">
+                    {status === 'won' ? (
+                      <>
+                        <Trophy size={64} style={{ color: COLORS.accentStrong }} className="mb-4 animate-bounce" />
+                        <h2 style={{ color: COLORS.accentWarm }} className="text-4xl font-bold text-center px-4 mb-2">¡HAS ESCAPADO!</h2>
+                        <p className="text-xl font-mono text-white mb-6">Puntaje Final: {score}</p>
+                        {currentLevel < LEVELS.length - 1 ? (
+                          <button onClick={() => initGame(currentLevel + 1, score)} style={{ backgroundColor: COLORS.accentCold }} className="mt-2 px-8 py-4 rounded-xl shadow-lg hover:bg-[#606C43] transition-colors text-white font-bold text-lg">Avanzar al Nivel {currentLevel + 2}</button>
+                        ) : (
+                          <div className="mt-4 text-center">
+                            <p className="text-xl font-bold text-green-400 mb-4">¡JUEGO COMPLETADO!</p>
+                            <button onClick={() => initGame(0, 100)} style={{ backgroundColor: COLORS.accentCold }} className="px-6 py-3 rounded-lg hover:bg-[#606C43] transition-colors text-white font-bold">Jugar de Nuevo</button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Skull size={64} className="text-red-500 mb-4 animate-pulse" />
+                        <h2 className="text-red-400 text-4xl font-bold mb-2">HAS MUERTO</h2>
+                        <p className="text-lg font-mono text-white mb-6">Puntaje Final: {score}</p>
+                        <button onClick={() => initGame(currentLevel, 100)} style={{ backgroundColor: COLORS.accentCold }} className="mt-2 px-8 py-4 rounded-xl shadow-lg hover:bg-[#606C43] transition-colors text-white font-bold text-lg">Reintentar Nivel</button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-rows-5 gap-2 aspect-square">
+                  {[4, 3, 2, 1, 0].map(y => (
+                    <div key={`row-${y}`} className="grid grid-cols-5 gap-2">
+                      {[0, 1, 2, 3, 4].map(x => {
+                        const cell = board[y] ? board[y][x] : null;
+                        if (!cell) return null;
+                        const isAgentHere = agent.x === x && agent.y === y;
+                        const isExit = x === 0 && y === 0;
+                        const showContent = cell.isVisited || status !== 'playing';
+
+                        return (
+                          <div key={`${x}-${y}`} style={{ backgroundColor: cell.isVisited ? COLORS.panel : COLORS.dark }} className={`relative rounded-xl border-2 flex items-center justify-center overflow-hidden ${isAgentHere && status === 'playing' ? 'border-[#F9E40B]' : 'border-transparent'} ${!cell.isVisited ? 'opacity-80' : 'shadow-inner'}`}>
+                            {isExit && (
+                              <svg viewBox="0 0 24 24" className="w-[60%] h-[60%] opacity-20 absolute z-0" stroke="#CBC9C2" strokeWidth="2" strokeLinecap="round">
+                                <line x1="7" y1="2" x2="7" y2="22" />
+                                <line x1="17" y1="2" x2="17" y2="22" />
+                                <line x1="7" y1="6" x2="17" y2="6" />
+                                <line x1="7" y1="12" x2="17" y2="12" />
+                                <line x1="7" y1="18" x2="17" y2="18" />
+                              </svg>
+                            )}
+
+                            {showContent && (
+                              <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-1 opacity-50 z-10">
+                                {cell.hasPit && <div className="w-full h-full bg-black/60 absolute" />}
+                                {cell.hasWumpus && !isAgentHere && <Skull size={32} className="text-red-500 drop-shadow-md" />}
+                                {cell.hasGold && (
+                                  <svg viewBox="0 0 24 24" className="w-10 h-10 drop-shadow-[0_0_8px_rgba(249,228,11,0.8)] animate-pulse z-10">
+                                    {/* Lado superior del lingote */}
+                                    <polygon points="6,9 18,9 21,14 3,14" fill="#F9E40B" stroke="#D9C40B" strokeWidth="1"/>
+                                    {/* Lado frontal del lingote */}
+                                    <polygon points="3,14 21,14 21,17 3,17" fill="#D9C40B" stroke="#A69508" strokeWidth="1"/>
+                                    {/* Reflejo de luz */}
+                                    <polygon points="5,14 19,14 17,10 7,10" fill="#FFF275" opacity="0.6" />
+                                  </svg>
+                                )}
+                              </div>
+                            )}
+                            
+                            {isAgentHere && (
+                              <div className="absolute inset-0 z-20 flex items-center justify-center">
+                                {status === 'died-wumpus' && <WumpusMonster />}
+                                {status === 'died-pit' && <FallingKnight />}
+                                {status === 'playing' && <HeroKnight dir={agent.dir} />}
+                              </div>
+                            )}
+                            <span className="absolute bottom-1 right-1 text-[10px] font-bold opacity-30 z-30">{x+1},{y+1}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ backgroundColor: COLORS.dark }} className="p-4 rounded-xl flex justify-between items-center gap-2 w-full max-w-[65vh]">
+                <PerceptionBadge active={perceptions.stench} icon={<Skull size={18} />} label="Stench" color="text-red-400" />
+                <PerceptionBadge active={perceptions.breeze} icon={<Wind size={18} />} label="Breeze" color="text-blue-400" />
+                <PerceptionBadge active={perceptions.glitter} icon={<Sparkles size={18} />} label="Glitter" color="text-yellow-400" />
+                <PerceptionBadge active={perceptions.wall} icon={<BoxSquare size={18} />} label="Wall" color="text-orange-400" />
+              </div>
+            </section>
+
+            <section className="lg:col-span-5 flex flex-col gap-4 h-full">
+              <div className="flex rounded-xl overflow-hidden" style={{ backgroundColor: COLORS.dark }}>
+                <button onClick={() => { setMode('manual'); setIsAutoPlaying(false); }} style={{ backgroundColor: mode === 'manual' ? COLORS.panel : 'transparent' }} className={`flex-1 py-3 font-bold transition-colors flex justify-center items-center gap-2 ${mode === 'manual' ? `text-[${COLORS.accentWarm}]` : ''}`}><Hand size={18} /> Modo Manual</button>
+                <button onClick={() => setMode('code')} style={{ backgroundColor: mode === 'code' ? COLORS.panel : 'transparent' }} className={`flex-1 py-3 font-bold transition-colors flex justify-center items-center gap-2 ${mode === 'code' ? `text-[${COLORS.accentWarm}]` : ''}`}><Code size={18} /> Modo Código</button>
+              </div>
+
+              <div style={{ backgroundColor: COLORS.panel }} className="p-5 rounded-2xl shadow-lg flex-1 flex flex-col min-h-[350px]">
+                {mode === 'manual' && (
+                  <div className="flex flex-col items-center justify-center flex-1 py-8 gap-6">
+                    <p className="text-xs text-center opacity-60 bg-[#27272B] px-4 py-2 rounded-lg">
+                      Usa las <b>flechas del teclado</b> para moverte,<br/> <b>A</b> para Espadazo y <b>S</b> para Agarrar Oro.
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div />
+                      <GameButton onClick={() => handleAction('MOVER_HACIA', 0)} icon={<ArrowUp />} label="Arriba" />
+                      <div />
+                      <GameButton onClick={() => handleAction('MOVER_HACIA', 3)} icon={<ArrowLeft />} label="Izquierda" />
+                      <GameButton onClick={() => handleAction('MOVER_HACIA', 2)} icon={<ArrowDown />} label="Abajo" />
+                      <GameButton onClick={() => handleAction('MOVER_HACIA', 1)} icon={<ArrowRight />} label="Derecha" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 w-full max-w-[280px]">
+                      <GameButton onClick={() => handleAction('ATACAR')} icon={<Sword />} label="Espadazo (A)" color={COLORS.accentCold} width="w-full" />
+                      <GameButton onClick={() => handleAction('AGARRAR')} icon={<Hand />} label="Agarrar (S)" color={COLORS.olive} width="w-full" />
+                    </div>
+                    <div className="text-sm opacity-70 mt-2 text-center">Magia de espada: {agent.hasArrow ? '1/1' : '0/1'}<br/>Oro obtenido: {agent.hasGold ? 'Sí' : 'No'}</div>
+                  </div>
+                )}
+
+                {mode === 'code' && (
+                  <div className="flex flex-col flex-1 h-full gap-3">
+                    {isLoadingPy ? (
+                      <div className="flex-1 flex flex-col items-center justify-center opacity-70">
+                        <RefreshCw className="animate-spin mb-3" size={32} style={{ color: COLORS.accentWarm }}/>
+                        <p>Cargando motor Python (Pyodide)...</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-xs opacity-80 bg-[#27272B] px-4 py-3 rounded-lg border border-[#464849]">
+                          <p className="font-bold mb-1" style={{ color: COLORS.accentWarm }}>Instrucciones del Agente:</p>
+                          <p className="mb-2">Define la función en inglés. Se penaliza con -1 pto cada paso.</p>
+                        </div>
+                        <textarea value={pyCode} onChange={(e) => setPyCode(e.target.value)} spellCheck="false" style={{ backgroundColor: COLORS.dark, color: '#e5e5e5' }} className="w-full flex-1 rounded-xl p-4 font-mono text-[13px] leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#F3DA4B] min-h-[150px]" />
+                        <div className="flex gap-2">
+                          {!isAutoPlaying ? (
+                            <button onClick={() => setIsAutoPlaying(true)} disabled={status !== 'playing'} style={{ backgroundColor: COLORS.accentCold }} className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#606C43] transition-colors disabled:opacity-50"><Play size={18} /> Auto</button>
+                          ) : (
+                            <button onClick={() => setIsAutoPlaying(false)} className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 bg-red-800 hover:bg-red-700 transition-colors"><Square size={18} /> Detener</button>
+                          )}
+                          <button onClick={executePythonStep} disabled={isAutoPlaying || status !== 'playing'} style={{ backgroundColor: COLORS.olive }} className="px-4 py-3 rounded-lg font-bold flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-50">Paso</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ backgroundColor: COLORS.dark }} className="h-48 rounded-xl p-4 overflow-y-auto flex flex-col gap-1 text-sm font-mono relative">
+                <h3 style={{ color: COLORS.softOlive }} className="sticky top-0 bg-[#27272B] pb-2 mb-2 border-b border-[#464849] font-bold z-10">Consola de Eventos</h3>
+                {logs.map((log, i) => (
+                  <div key={i} className={`opacity-${Math.max(20, 100 - i * 15)} ${i===0 ? 'text-[#F3DA4B]' : ''}`}><span className="opacity-50 mr-2">►</span>{log}</div>
+                ))}
+              </div>
+            </section>
+          </main>
+        </div>
+      );
+    }
+
+    function GameButton({ onClick, icon, label, color = '#27272B', width = 'w-16' }) {
+      return (
+        <button onClick={onClick} style={{ backgroundColor: color }} className={`${width} h-16 rounded-xl flex flex-col items-center justify-center gap-1 hover:brightness-125 transition-all shadow-md active:scale-95`}>
+          {icon}
+          <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{label}</span>
+        </button>
+      );
+    }
+
+    function PerceptionBadge({ active, icon, label, color }) {
+      return (
+        <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${active ? `opacity-100 ${color} drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]` : 'opacity-20 grayscale'}`}>
+          <div className={`p-2 rounded-full ${active ? 'bg-[#464849]' : ''}`}>{icon}</div>
+          <span className="text-[10px] uppercase font-bold text-center leading-tight">{label}</span>
+        </div>
+      );
+    }
+
+    function HeroKnight({ dir }) {
+      const DIRS = [{ rot: -90 }, { rot: 0 }, { rot: 90 }, { rot: 180 }];
+      const rotation = DIRS[dir].rot;
+      return (
+        <svg viewBox="0 0 40 40" className="w-[80%] h-[80%] drop-shadow-xl z-20" style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.2s ease-out' }}>
+          <polygon points="12,15 2,20 12,25" fill="#2D473B" />
+          <path d="M 12 4 L 20 4 L 20 9 Q 16 15 12 9 Z" fill="#464849" stroke="#CBC9C2" strokeWidth="1.5" />
+          <rect x="16" y="27" width="20" height="3" fill="#CBC9C2" />
+          <rect x="18" y="24" width="3" height="9" fill="#27272B" />
+          <circle cx="18" cy="28.5" r="1.5" fill="#F9E40B" />
+          <rect x="12" y="14" width="10" height="12" rx="2" fill="#464849" />
+          <circle cx="15" cy="13" r="4" fill="#CBC9C2" />
+          <circle cx="15" cy="27" r="4" fill="#CBC9C2" />
+          <rect x="18" y="15" width="8" height="10" rx="3" fill="#CBC9C2" />
+          <rect x="22" y="18" width="4" height="4" fill="#1B1B1E" />
+          <rect x="20" y="19" width="6" height="2" fill="#1B1B1E" />
+        </svg>
+      );
+    }
+
+    function FallingKnight() {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute w-[80%] h-[80%] bg-black rounded-full z-10 shadow-inner"></div>
+          <div className="w-[80%] h-[80%] relative z-20 flex items-center justify-center animate-[pitFall_0.8s_ease-in-out_forwards]">
+            <HeroKnight dir={2} /> 
+            <style>{`
+              @keyframes pitFall {
+                0% { transform: scale(1) rotate(0deg); opacity: 1; }
+                20% { transform: scale(1.1) rotate(10deg); opacity: 1; }
+                100% { transform: scale(0.1) rotate(360deg); opacity: 0; }
+              }
+            `}</style>
+          </div>
+        </div>
+      );
+    }
+
+    function WumpusMonster() {
+      return (
+        <svg viewBox="0 0 40 40" className="w-[90%] h-[90%] drop-shadow-2xl animate-bounce z-30 relative">
+          <path d="M 5 30 C 5 10, 35 10, 35 30 Z" fill="#7f1d1d" />
+          <circle cx="14" cy="20" r="4" fill="#fef08a" />
+          <circle cx="26" cy="20" r="4" fill="#fef08a" />
+          <circle cx="14" cy="20" r="2" fill="#000" />
+          <circle cx="26" cy="20" r="2" fill="#000" />
+          <path d="M 10 26 Q 20 32 30 26" stroke="#450a0a" strokeWidth="2" fill="none" />
+          <polygon points="12,27 15,31 18,28" fill="#fff" />
+          <polygon points="22,28 25,31 28,27" fill="#fff" />
+          <path d="M 8 12 Q 14 5 20 10 Q 26 5 32 12" stroke="#450a0a" strokeWidth="3" fill="none"/>
+        </svg>
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(<WumpusWorld />);
+  </script>
 </body>
 </html>
