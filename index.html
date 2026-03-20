@@ -127,12 +127,18 @@
       { dx: -1, dy: 0, label: 'Oeste', rot: 180 }
     ];
 
+    // MAPAS REDISEÑADOS: 100% resolubles lógicamente sin saltos de fe.
     const LEVELS = [
-      { wumpus: {x: 0, y: 4}, gold: {x: 2, y: 2}, pits: [{x: 4, y: 1}, {x: 2, y: 4}] },
-      { wumpus: {x: 1, y: 2}, gold: {x: 4, y: 0}, pits: [{x: 2, y: 1}, {x: 2, y: 3}, {x: 3, y: 2}, {x: 4, y: 4}] },
-      { wumpus: {x: 3, y: 3}, gold: {x: 0, y: 4}, pits: [{x: 1, y: 1}, {x: 2, y: 2}, {x: 3, y: 1}, {x: 1, y: 3}, {x: 4, y: 0}] },
-      { wumpus: {x: 0, y: 3}, gold: {x: 4, y: 4}, pits: [{x: 0, y: 1}, {x: 1, y: 2}, {x: 2, y: 3}, {x: 3, y: 4}, {x: 4, y: 1}, {x: 2, y: 0}] },
-      { wumpus: {x: 2, y: 2}, gold: {x: 4, y: 2}, pits: [{x: 1, y: 0}, {x: 1, y: 4}, {x: 3, y: 1}, {x: 3, y: 3}, {x: 0, y: 4}, {x: 4, y: 0}] }
+      // Nivel 1 (Fácil / Intro)
+      { wumpus: {x: 0, y: 4}, gold: {x: 2, y: 2}, pits: [{x: 4, y: 0}, {x: 4, y: 4}] },
+      // Nivel 2 (Deducción simple del Wumpus)
+      { wumpus: {x: 2, y: 0}, gold: {x: 4, y: 0}, pits: [{x: 0, y: 3}, {x: 4, y: 4}] },
+      // Nivel 3 (Esquivando pozos determinísticamente a través del centro)
+      { wumpus: {x: 0, y: 4}, gold: {x: 4, y: 4}, pits: [{x: 3, y: 0}, {x: 0, y: 3}, {x: 4, y: 1}, {x: 1, y: 4}] },
+      // Nivel 4 (Deducción avanzada: requiere usar cruce de hedores y espada)
+      { wumpus: {x: 3, y: 3}, gold: {x: 4, y: 4}, pits: [{x: 3, y: 0}, {x: 3, y: 1}, {x: 0, y: 3}, {x: 2, y: 4}] },
+      // Nivel 5 (Masterclass: Wumpus en el centro, ruta estrecha comprobable)
+      { wumpus: {x: 2, y: 2}, gold: {x: 4, y: 2}, pits: [{x: 2, y: 0}, {x: 0, y: 3}, {x: 2, y: 4}, {x: 4, y: 4}] }
     ];
 
     const DEFAULT_PYTHON_CODE = `def decide_action(breeze, stench, visited, wall, scream):
@@ -144,7 +150,7 @@
       const [board, setBoard] = useState([]);
       const [agent, setAgent] = useState({ x: 0, y: 0, dir: 1, hasGold: false, hasArrow: true });
       const [score, setScore] = useState(100);
-      const [status, setStatus] = useState('playing'); // playing, won, died-wumpus, died-pit
+      const [status, setStatus] = useState('playing'); 
       const [logs, setLogs] = useState([]);
       const [mode, setMode] = useState('manual');
       const [currentLevel, setCurrentLevel] = useState(0);
@@ -252,7 +258,7 @@
         let newBoard = [...board];
         let screamed = false;
         let newStatus = 'playing';
-        let newScore = score - 1; // -1 punto por cualquier movimiento/acción
+        let newScore = score - 1; 
 
         if (actionStr === 'MOVER_HACIA') {
           dir = extraParam;
@@ -455,7 +461,6 @@
 
                         return (
                           <div key={`${x}-${y}`} style={{ backgroundColor: cell.isVisited ? COLORS.panel : COLORS.dark }} className={`relative rounded-xl border-2 flex items-center justify-center overflow-hidden ${isAgentHere && status === 'playing' ? 'border-[#F9E40B]' : 'border-transparent'} ${!cell.isVisited ? 'opacity-80' : 'shadow-inner'}`}>
-                            {/* Escalera de salida */}
                             {isExit && (
                               <svg viewBox="0 0 24 24" className="w-[60%] h-[60%] opacity-20 absolute z-0" stroke="#CBC9C2" strokeWidth="2" strokeLinecap="round">
                                 <line x1="7" y1="2" x2="7" y2="22" />
@@ -588,7 +593,6 @@
       );
     }
 
-    // --- DISEÑO DEL CABALLERO ---
     function HeroKnight({ dir }) {
       const DIRS = [{ rot: -90 }, { rot: 0 }, { rot: 90 }, { rot: 180 }];
       const rotation = DIRS[dir].rot;
@@ -609,16 +613,12 @@
       );
     }
 
-    // --- ANIMACIÓN DE CAÍDA DEL CABALLERO ---
     function FallingKnight() {
       return (
         <div className="absolute inset-0 flex items-center justify-center">
-          {/* Círculo negro que representa el pozo */}
           <div className="absolute w-[80%] h-[80%] bg-black rounded-full z-10 shadow-inner"></div>
-          
-          {/* Caballero cayendo */}
           <div className="w-[80%] h-[80%] relative z-20 flex items-center justify-center animate-[pitFall_0.8s_ease-in-out_forwards]">
-            <HeroKnight dir={2} /> {/* Reutilizamos el caballero mirando hacia "abajo" */}
+            <HeroKnight dir={2} /> 
             <style>{`
               @keyframes pitFall {
                 0% { transform: scale(1) rotate(0deg); opacity: 1; }
@@ -631,7 +631,6 @@
       );
     }
 
-    // --- DISEÑO DEL WUMPUS ---
     function WumpusMonster() {
       return (
         <svg viewBox="0 0 40 40" className="w-[90%] h-[90%] drop-shadow-2xl animate-bounce z-30 relative">
