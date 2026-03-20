@@ -136,7 +136,9 @@
     ];
 
     const DEFAULT_PYTHON_CODE = `def decide_action(breeze, stench, glitter, wall):
-    
+    if breeze:
+        return "BACKWARD"
+        
     return random.choice(["FORWARD", "LEFT", "RIGHT"])
 `;
 
@@ -149,7 +151,7 @@
       const [mode, setMode] = useState('manual');
       const [currentLevel, setCurrentLevel] = useState(0);
       const [perceptions, setPerceptions] = useState({ breeze: false, stench: false, glitter: false, wall: false });
-      const [isFastMode, setIsFastMode] = useState(false); // <--- NUEVO ESTADO PARA CÁMARA RÁPIDA
+      const [isFastMode, setIsFastMode] = useState(false);
       
       const [pyodide, setPyodide] = useState(null);
       const [pyCode, setPyCode] = useState(DEFAULT_PYTHON_CODE);
@@ -285,6 +287,37 @@
               playSound('bump');
             }
             break;
+
+          // --- NUEVA ACCIÓN BACKWARD ---
+          case 'BACKWARD':
+            // Girar 180 grados
+            dir = (dir + 2) % 4;
+            const bx = x + DIRS[dir].dx;
+            const by = y + DIRS[dir].dy;
+            
+            if (bx >= 0 && bx < SIZE && by >= 0 && by < SIZE) {
+              x = bx;
+              y = by;
+              newBoard[y][x].isVisited = true;
+              addLog(`Te diste la vuelta (180°) y avanzaste hacia el ${DIRS[dir].label} a (${x+1},${y+1}).`);
+              
+              if (newBoard[y][x].hasWumpus) {
+                newStatus = 'died-wumpus';
+                addLog('¡Oh no! Has sido devorado por el Wumpus.');
+                playSound('wumpus');
+              } else if (newBoard[y][x].hasPit) {
+                newStatus = 'died-pit';
+                addLog('¡Ahhh! Caíste en un pozo sin fondo.');
+                playSound('pit');
+              } else {
+                playSound('move');
+              }
+            } else {
+              addLog('¡Ouch! Te diste la vuelta pero chocaste con la pared. (-1 pt)');
+              playSound('bump');
+            }
+            break;
+
           case 'LEFT':
             dir = (dir + 3) % 4;
             addLog('Giraste a la izquierda.');
@@ -383,14 +416,13 @@
       useEffect(() => {
         let timer;
         if (isAutoPlaying && status === 'playing') {
-          // APLICANDO LA VELOCIDAD DE CÁMARA RÁPIDA (100ms) vs NORMAL (600ms)
           const delay = isFastMode ? 100 : 600;
           timer = setTimeout(() => {
             executePythonStep();
           }, delay);
         }
         return () => clearTimeout(timer);
-      }, [isAutoPlaying, agent, status, isFastMode]); // isFastMode agregado como dependencia
+      }, [isAutoPlaying, agent, status, isFastMode]);
 
       return (
         <div style={{ backgroundColor: COLORS.bgMain, color: COLORS.lightText }} className="min-h-screen font-sans p-6 selection:bg-[#F3DA4B] selection:text-[#1B1B1E]">
@@ -408,7 +440,6 @@
                 <span className={`text-2xl font-black ${score < 0 ? 'text-red-400' : 'text-[#F9E40B]'}`}>{score}</span>
               </div>
               <div className="flex gap-2">
-                {/* --- NUEVO BOTÓN DE CÁMARA RÁPIDA --- */}
                 <button 
                   onClick={() => setIsFastMode(!isFastMode)} 
                   style={{ 
@@ -558,7 +589,7 @@
                       <>
                         <div className="text-xs opacity-80 bg-[#27272B] px-4 py-3 rounded-lg border border-[#464849]">
                           <p className="font-bold mb-1" style={{ color: COLORS.accentWarm }}>Instrucciones del Agente:</p>
-                          <p className="mb-2">Define la función en inglés. Se penaliza con -1 pto cada paso.</p>
+                          <p className="mb-2">Retorna: FORWARD, LEFT, RIGHT o BACKWARD.</p>
                         </div>
                         <textarea value={pyCode} onChange={(e) => setPyCode(e.target.value)} spellCheck="false" style={{ backgroundColor: COLORS.dark, color: '#e5e5e5' }} className="w-full flex-1 rounded-xl p-4 font-mono text-[13px] leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#F3DA4B] min-h-[150px]" />
                         <div className="flex gap-2">
