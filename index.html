@@ -56,7 +56,7 @@
           osc.start(now);
           osc.stop(now + 0.1);
           break;
-        case 'wumpus': // Rugido grave
+        case 'wumpus': 
           osc.type = 'sawtooth';
           osc.frequency.setValueAtTime(100, now);
           osc.frequency.linearRampToValueAtTime(30, now + 0.6);
@@ -65,7 +65,7 @@
           osc.start(now);
           osc.stop(now + 0.6);
           break;
-        case 'scream': // Grito agudo 
+        case 'scream': 
           osc.type = 'sawtooth';
           osc.frequency.setValueAtTime(800, now);
           osc.frequency.exponentialRampToValueAtTime(100, now + 0.8);
@@ -74,7 +74,7 @@
           osc.start(now);
           osc.stop(now + 0.8);
           break;
-        case 'pit': // Caída
+        case 'pit': 
           osc.type = 'square';
           osc.frequency.setValueAtTime(400, now);
           osc.frequency.exponentialRampToValueAtTime(50, now + 0.5);
@@ -83,7 +83,7 @@
           osc.start(now);
           osc.stop(now + 0.5);
           break;
-        case 'gold': // Brillo agudo
+        case 'gold': 
           osc.type = 'sine';
           osc.frequency.setValueAtTime(800, now);
           osc.frequency.setValueAtTime(1200, now + 0.1);
@@ -92,7 +92,7 @@
           osc.start(now);
           osc.stop(now + 0.4);
           break;
-        case 'attack': // Zumbido espada
+        case 'attack': 
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(200, now);
           osc.frequency.linearRampToValueAtTime(800, now + 0.15);
@@ -101,7 +101,7 @@
           osc.start(now);
           osc.stop(now + 0.15);
           break;
-        case 'bump': // Golpe sordo
+        case 'bump': 
           osc.type = 'square';
           osc.frequency.setValueAtTime(150, now);
           osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
@@ -136,7 +136,9 @@
     ];
 
     const DEFAULT_PYTHON_CODE = `def decide_action(breeze, stench, glitter, wall):
-    return random.choice(["FORWARD", "LEFT", "RIGHT"])`;
+    
+    return random.choice(["FORWARD", "LEFT", "RIGHT"])
+`;
 
     function WumpusWorld() {
       const [board, setBoard] = useState([]);
@@ -214,18 +216,14 @@
       useEffect(() => {
         initGame(0, 100);
         const loadPy = async () => {
-          try {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js';
-            script.onload = async () => {
-              const py = await window.loadPyodide();
-              setPyodide(py);
-              setIsLoadingPy(false);
-            };
-            document.body.appendChild(script);
-          } catch (e) {
-            console.error("Error cargando Pyodide", e);
-          }
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js';
+          script.onload = async () => {
+            const py = await window.loadPyodide();
+            setPyodide(py);
+            setIsLoadingPy(false);
+          };
+          document.body.appendChild(script);
         };
         loadPy();
       }, []);
@@ -236,6 +234,7 @@
         const frontX = x + DIRS[dir].dx;
         const frontY = y + DIRS[dir].dy;
         const isWall = frontX < 0 || frontX >= SIZE || frontY < 0 || frontY >= SIZE;
+        
         const isFrontGold = !isWall && currentBoard[frontY][frontX].hasGold;
 
         setPerceptions({
@@ -302,20 +301,21 @@
           case 'GRAB':
             let grabX = x + DIRS[dir].dx;
             let grabY = y + DIRS[dir].dy;
+            
             if (grabX >= 0 && grabX < SIZE && grabY >= 0 && grabY < SIZE && newBoard[grabY][grabX].hasGold) {
               hasGold = true;
               newBoard[grabY][grabX].hasGold = false;
               newScore += 100;
-              addLog('¡Agarraste el lingote de enfrente! (+100 pts). Regresa a (1,1).');
+              addLog('¡Agarraste el lingote de enfrente! (+100 pts) (S) Ahora regresa a la escalera en (1,1).');
               playSound('gold');
             } else if (newBoard[y][x].hasGold) { 
               hasGold = true;
               newBoard[y][x].hasGold = false;
               newScore += 100;
-              addLog('¡Agarraste el lingote! (+100 pts). Regresa a (1,1).');
+              addLog('¡Agarraste el lingote! (+100 pts) (S) Ahora regresa a la escalera en (1,1).');
               playSound('gold');
             } else {
-              addLog('Intentaste agarrar algo, pero no hay nada aquí. (-1 pt)');
+              addLog('Intentaste agarrar algo, pero no hay nada aquí ni enfrente. (-1 pt)');
               playSound('bump');
             }
             break;
@@ -343,7 +343,7 @@
               }
               if (hit) {
                 newScore += 50;
-                addLog('¡Escuchaste un grito aterrador! (+50 pts) Destruiste al Wumpus.');
+                addLog('¡Escuchaste un grito aterrador! (+50 pts) Tu espada destruyó al Wumpus.');
                 playSound('scream');
               } else {
                 addLog('Silencio... el rayo de tu espada no golpeó nada.');
@@ -376,19 +376,13 @@
           const action = await pyodide.runPythonAsync(callStr);
           
           if (typeof action === 'string') {
-            // Limpia espacios y asegura mayúsculas para evitar errores tipográficos del usuario
             handleAction(action.trim().toUpperCase());
           } else {
-            addLog('Error: El script debe devolver un texto (ej. "FORWARD").');
+            addLog('Error: El script no devolvió un string ("FORWARD", "LEFT", etc).');
             setIsAutoPlaying(false);
           }
         } catch (err) {
-          // ESCUDO ANTI-CRASHEO: Verifica si err es un string o un objeto con mensaje
-          console.error("Error en Pyodide:", err);
-          const errorMessage = err && err.message ? err.message : String(err);
-          const cleanError = errorMessage.split('\n').filter(line => line.trim() !== '').pop() || "Error de sintaxis";
-          
-          addLog(`Error en Python: ${cleanError}`);
+          addLog(`Error en Python: ${err.message.split('\n').pop()}`);
           setIsAutoPlaying(false);
         }
       };
@@ -556,14 +550,14 @@
                       <>
                         <div className="text-xs opacity-80 bg-[#27272B] px-4 py-3 rounded-lg border border-[#464849]">
                           <p className="font-bold mb-1" style={{ color: COLORS.accentWarm }}>Instrucciones del Agente:</p>
-                          <p className="mb-2">Devuelve uno de estos textos: <b>"FORWARD", "LEFT", "RIGHT", "GRAB"</b> o <b>"ATTACK"</b>.</p>
+                          <p className="mb-2">Define la función en inglés. Se penaliza con -1 pto cada paso.</p>
                         </div>
                         <textarea value={pyCode} onChange={(e) => setPyCode(e.target.value)} spellCheck="false" style={{ backgroundColor: COLORS.dark, color: '#e5e5e5' }} className="w-full flex-1 rounded-xl p-4 font-mono text-[13px] leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#F3DA4B] min-h-[150px]" />
                         <div className="flex gap-2">
                           {!isAutoPlaying ? (
                             <button onClick={() => setIsAutoPlaying(true)} disabled={status !== 'playing'} style={{ backgroundColor: COLORS.accentCold }} className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#606C43] transition-colors disabled:opacity-50"><Play size={18} /> Auto</button>
                           ) : (
-                            <button onClick={() => setIsAutoPlaying(false)} className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 bg-red-800 hover:bg-red-700 transition-colors"><Square size={18} /> Detener</button>
+                            <button onClick={() => setIsAutoPlaying(false)} className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 bg-red-800 hover:bg-red-700 transition-colors"><BoxSquare size={18} /> Detener</button>
                           )}
                           <button onClick={executePythonStep} disabled={isAutoPlaying || status !== 'playing'} style={{ backgroundColor: COLORS.olive }} className="px-4 py-3 rounded-lg font-bold flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-50">Paso</button>
                         </div>
