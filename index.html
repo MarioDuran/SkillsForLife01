@@ -137,7 +137,7 @@
 
     const DEFAULT_PYTHON_CODE = `def decide_action(breeze, stench, glitter, wall):
     
-    return random.choice(["AVANZAR", "IZQUIERDA", "DERECHA"])
+    return random.choice(["FORWARD", "LEFT", "RIGHT"])
 `;
 
     function WumpusWorld() {
@@ -198,12 +198,12 @@
           
           let handled = true;
           switch(e.key) {
-            case 'ArrowUp': handleAction('MOVER_HACIA', 0); break;
-            case 'ArrowRight': handleAction('MOVER_HACIA', 1); break;
-            case 'ArrowDown': handleAction('MOVER_HACIA', 2); break;
-            case 'ArrowLeft': handleAction('MOVER_HACIA', 3); break;
-            case 'a': case 'A': handleAction('ATACAR'); break;
-            case 's': case 'S': handleAction('AGARRAR'); break;
+            case 'ArrowUp': handleAction('MOVE_TO', 0); break;
+            case 'ArrowRight': handleAction('MOVE_TO', 1); break;
+            case 'ArrowDown': handleAction('MOVE_TO', 2); break;
+            case 'ArrowLeft': handleAction('MOVE_TO', 3); break;
+            case 'a': case 'A': handleAction('ATTACK'); break;
+            case 's': case 'S': handleAction('GRAB'); break;
             default: handled = false;
           }
           if (handled) e.preventDefault();
@@ -254,13 +254,13 @@
         let newStatus = 'playing';
         let newScore = score - 1; 
 
-        if (actionStr === 'MOVER_HACIA') {
+        if (actionStr === 'MOVE_TO') {
           dir = extraParam;
-          actionStr = 'AVANZAR'; 
+          actionStr = 'FORWARD'; 
         }
 
         switch (actionStr) {
-          case 'AVANZAR':
+          case 'FORWARD':
             const nx = x + DIRS[dir].dx;
             const ny = y + DIRS[dir].dy;
             if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
@@ -289,17 +289,17 @@
               playSound('bump');
             }
             break;
-          case 'IZQUIERDA':
+          case 'LEFT':
             dir = (dir + 3) % 4;
             addLog('Giraste a la izquierda.');
             playSound('move');
             break;
-          case 'DERECHA':
+          case 'RIGHT':
             dir = (dir + 1) % 4;
             addLog('Giraste a la derecha.');
             playSound('move');
             break;
-          case 'AGARRAR':
+          case 'GRAB':
             let grabX = x + DIRS[dir].dx;
             let grabY = y + DIRS[dir].dy;
             
@@ -321,7 +321,7 @@
               playSound('bump');
             }
             break;
-          case 'ATACAR':
+          case 'ATTACK':
             if (hasArrow) {
               hasArrow = false;
               addLog('¡Diste un poderoso espadazo mágico! (A)');
@@ -376,10 +376,12 @@
           await pyodide.runPythonAsync(`import random\n${pyCode}`);
           const callStr = `decide_action(${perceptions.breeze ? 'True' : 'False'}, ${perceptions.stench ? 'True' : 'False'}, ${perceptions.glitter ? 'True' : 'False'}, ${perceptions.wall ? 'True' : 'False'})`;
           const action = await pyodide.runPythonAsync(callStr);
+          
           if (typeof action === 'string') {
-            handleAction(action.toUpperCase());
+            // Protección contra espacios en blanco y mayúsculas
+            handleAction(action.trim().toUpperCase());
           } else {
-            addLog('Error: El script de Python no devolvió un string válido.');
+            addLog('Error: El script no devolvió un string ("FORWARD", "LEFT", etc).');
             setIsAutoPlaying(false);
           }
         } catch (err) {
@@ -480,11 +482,8 @@
                                 {cell.hasWumpus && !isAgentHere && <Skull size={32} className="text-red-500 drop-shadow-md" />}
                                 {cell.hasGold && (
                                   <svg viewBox="0 0 24 24" className="w-10 h-10 drop-shadow-[0_0_8px_rgba(249,228,11,0.8)] animate-pulse z-10">
-                                    {/* Lado superior del lingote */}
                                     <polygon points="6,9 18,9 21,14 3,14" fill="#F9E40B" stroke="#D9C40B" strokeWidth="1"/>
-                                    {/* Lado frontal del lingote */}
                                     <polygon points="3,14 21,14 21,17 3,17" fill="#D9C40B" stroke="#A69508" strokeWidth="1"/>
-                                    {/* Reflejo de luz */}
                                     <polygon points="5,14 19,14 17,10 7,10" fill="#FFF275" opacity="0.6" />
                                   </svg>
                                 )}
@@ -529,15 +528,15 @@
                     </p>
                     <div className="grid grid-cols-3 gap-3">
                       <div />
-                      <GameButton onClick={() => handleAction('MOVER_HACIA', 0)} icon={<ArrowUp />} label="Arriba" />
+                      <GameButton onClick={() => handleAction('MOVE_TO', 0)} icon={<ArrowUp />} label="Arriba" />
                       <div />
-                      <GameButton onClick={() => handleAction('MOVER_HACIA', 3)} icon={<ArrowLeft />} label="Izquierda" />
-                      <GameButton onClick={() => handleAction('MOVER_HACIA', 2)} icon={<ArrowDown />} label="Abajo" />
-                      <GameButton onClick={() => handleAction('MOVER_HACIA', 1)} icon={<ArrowRight />} label="Derecha" />
+                      <GameButton onClick={() => handleAction('MOVE_TO', 3)} icon={<ArrowLeft />} label="Izquierda" />
+                      <GameButton onClick={() => handleAction('MOVE_TO', 2)} icon={<ArrowDown />} label="Abajo" />
+                      <GameButton onClick={() => handleAction('MOVE_TO', 1)} icon={<ArrowRight />} label="Derecha" />
                     </div>
                     <div className="grid grid-cols-2 gap-4 w-full max-w-[280px]">
-                      <GameButton onClick={() => handleAction('ATACAR')} icon={<Sword />} label="Espadazo (A)" color={COLORS.accentCold} width="w-full" />
-                      <GameButton onClick={() => handleAction('AGARRAR')} icon={<Hand />} label="Agarrar (S)" color={COLORS.olive} width="w-full" />
+                      <GameButton onClick={() => handleAction('ATTACK')} icon={<Sword />} label="Espadazo (A)" color={COLORS.accentCold} width="w-full" />
+                      <GameButton onClick={() => handleAction('GRAB')} icon={<Hand />} label="Agarrar (S)" color={COLORS.olive} width="w-full" />
                     </div>
                     <div className="text-sm opacity-70 mt-2 text-center">Magia de espada: {agent.hasArrow ? '1/1' : '0/1'}<br/>Oro obtenido: {agent.hasGold ? 'Sí' : 'No'}</div>
                   </div>
