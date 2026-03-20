@@ -28,7 +28,7 @@
     import { 
       Skull, Wind, Navigation, Hand, Play, Square as BoxSquare,
       AlertCircle, Trophy, RefreshCw, Code, ArrowUp, ArrowDown,
-      ArrowLeft, ArrowRight, Sword, Volume2, Eye
+      ArrowLeft, ArrowRight, Sword, Volume2, Sparkles
     } from 'lucide-react';
 
     // --- SISTEMA DE SONIDO RETRO (WEB AUDIO API) ---
@@ -56,7 +56,7 @@
           osc.start(now);
           osc.stop(now + 0.1);
           break;
-        case 'wumpus': // Rugido grave (Muerte)
+        case 'wumpus':
           osc.type = 'sawtooth';
           osc.frequency.setValueAtTime(100, now);
           osc.frequency.linearRampToValueAtTime(30, now + 0.6);
@@ -65,7 +65,7 @@
           osc.start(now);
           osc.stop(now + 0.6);
           break;
-        case 'scream': // Grito agudo (Wumpus asesinado)
+        case 'scream':
           osc.type = 'sawtooth';
           osc.frequency.setValueAtTime(800, now);
           osc.frequency.exponentialRampToValueAtTime(100, now + 0.8);
@@ -74,7 +74,7 @@
           osc.start(now);
           osc.stop(now + 0.8);
           break;
-        case 'pit': // Caída
+        case 'pit':
           osc.type = 'square';
           osc.frequency.setValueAtTime(400, now);
           osc.frequency.exponentialRampToValueAtTime(50, now + 0.5);
@@ -83,7 +83,7 @@
           osc.start(now);
           osc.stop(now + 0.5);
           break;
-        case 'gold': // Brillo agudo
+        case 'gold':
           osc.type = 'sine';
           osc.frequency.setValueAtTime(800, now);
           osc.frequency.setValueAtTime(1200, now + 0.1);
@@ -92,7 +92,7 @@
           osc.start(now);
           osc.stop(now + 0.4);
           break;
-        case 'attack': // Zumbido de espada
+        case 'attack':
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(200, now);
           osc.frequency.linearRampToValueAtTime(800, now + 0.15);
@@ -101,7 +101,7 @@
           osc.start(now);
           osc.stop(now + 0.15);
           break;
-        case 'bump': // Golpe sordo
+        case 'bump':
           osc.type = 'square';
           osc.frequency.setValueAtTime(150, now);
           osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
@@ -127,21 +127,15 @@
       { dx: -1, dy: 0, label: 'Oeste', rot: 180 }
     ];
 
-    // MAPAS REDISEÑADOS: 100% resolubles lógicamente sin saltos de fe.
     const LEVELS = [
-      // Nivel 1 (Fácil / Intro)
       { wumpus: {x: 0, y: 4}, gold: {x: 2, y: 2}, pits: [{x: 4, y: 0}, {x: 4, y: 4}] },
-      // Nivel 2 (Deducción simple del Wumpus)
       { wumpus: {x: 2, y: 0}, gold: {x: 4, y: 0}, pits: [{x: 0, y: 3}, {x: 4, y: 4}] },
-      // Nivel 3 (Esquivando pozos determinísticamente a través del centro)
       { wumpus: {x: 0, y: 4}, gold: {x: 4, y: 4}, pits: [{x: 3, y: 0}, {x: 0, y: 3}, {x: 4, y: 1}, {x: 1, y: 4}] },
-      // Nivel 4 (Deducción avanzada: requiere usar cruce de hedores y espada)
       { wumpus: {x: 3, y: 3}, gold: {x: 4, y: 4}, pits: [{x: 3, y: 0}, {x: 3, y: 1}, {x: 0, y: 3}, {x: 2, y: 4}] },
-      // Nivel 5 (Masterclass: Wumpus en el centro, ruta estrecha comprobable)
       { wumpus: {x: 2, y: 2}, gold: {x: 4, y: 2}, pits: [{x: 2, y: 0}, {x: 0, y: 3}, {x: 2, y: 4}, {x: 4, y: 4}] }
     ];
 
-    const DEFAULT_PYTHON_CODE = `def decide_action(breeze, stench, visited, wall, scream):
+    const DEFAULT_PYTHON_CODE = `def decide_action(breeze, stench, glitter, wall, scream):
     
     return random.choice(["AVANZAR", "IZQUIERDA", "DERECHA"])
 `;
@@ -154,7 +148,7 @@
       const [logs, setLogs] = useState([]);
       const [mode, setMode] = useState('manual');
       const [currentLevel, setCurrentLevel] = useState(0);
-      const [perceptions, setPerceptions] = useState({ breeze: false, stench: false, visited: false, wall: false, scream: false });
+      const [perceptions, setPerceptions] = useState({ breeze: false, stench: false, glitter: false, wall: false, scream: false });
       
       const [pyodide, setPyodide] = useState(null);
       const [pyCode, setPyCode] = useState(DEFAULT_PYTHON_CODE);
@@ -240,12 +234,14 @@
         const frontX = x + DIRS[dir].dx;
         const frontY = y + DIRS[dir].dy;
         const isWall = frontX < 0 || frontX >= SIZE || frontY < 0 || frontY >= SIZE;
-        const isFrontVisited = !isWall && currentBoard[frontY][frontX].isVisited;
+        
+        // Glitter detecta si hay oro enfrente
+        const isFrontGold = !isWall && currentBoard[frontY][frontX].hasGold;
 
         setPerceptions({
           breeze: currentBoard[y][x].isBreezy,
           stench: currentBoard[y][x].isStinky,
-          visited: isFrontVisited,
+          glitter: isFrontGold,
           wall: isWall,
           scream: screamed
         });
@@ -306,14 +302,24 @@
             playSound('move');
             break;
           case 'AGARRAR':
-            if (newBoard[y][x].hasGold) {
+            let grabX = x + DIRS[dir].dx;
+            let grabY = y + DIRS[dir].dy;
+            
+            // Revisa si hay oro enfrente (acorde a la percepción de Glitter)
+            if (grabX >= 0 && grabX < SIZE && grabY >= 0 && grabY < SIZE && newBoard[grabY][grabX].hasGold) {
+              hasGold = true;
+              newBoard[grabY][grabX].hasGold = false;
+              newScore += 100;
+              addLog('¡Agarraste el lingote de enfrente! (+100 pts) (S) Ahora regresa a la escalera en (1,1).');
+              playSound('gold');
+            } else if (newBoard[y][x].hasGold) { // Fallback por si lo pisan
               hasGold = true;
               newBoard[y][x].hasGold = false;
               newScore += 100;
-              addLog('¡Agarraste el oro! (+100 pts) (S) Ahora regresa a la escalera en (1,1).');
+              addLog('¡Agarraste el lingote! (+100 pts) (S) Ahora regresa a la escalera en (1,1).');
               playSound('gold');
             } else {
-              addLog('Intentaste agarrar algo, pero no hay nada aquí. (-1 pt)');
+              addLog('Intentaste agarrar algo, pero no hay nada aquí ni enfrente. (-1 pt)');
               playSound('bump');
             }
             break;
@@ -371,7 +377,7 @@
         if (!pyodide || status !== 'playing') return;
         try {
           await pyodide.runPythonAsync(`import random\n${pyCode}`);
-          const callStr = `decide_action(${perceptions.breeze ? 'True' : 'False'}, ${perceptions.stench ? 'True' : 'False'}, ${perceptions.visited ? 'True' : 'False'}, ${perceptions.wall ? 'True' : 'False'}, ${perceptions.scream ? 'True' : 'False'})`;
+          const callStr = `decide_action(${perceptions.breeze ? 'True' : 'False'}, ${perceptions.stench ? 'True' : 'False'}, ${perceptions.glitter ? 'True' : 'False'}, ${perceptions.wall ? 'True' : 'False'}, ${perceptions.scream ? 'True' : 'False'})`;
           const action = await pyodide.runPythonAsync(callStr);
           if (typeof action === 'string') {
             handleAction(action.toUpperCase());
@@ -476,8 +482,13 @@
                                 {cell.hasPit && <div className="w-full h-full bg-black/60 absolute" />}
                                 {cell.hasWumpus && !isAgentHere && <Skull size={32} className="text-red-500 drop-shadow-md" />}
                                 {cell.hasGold && (
-                                  <svg viewBox="0 0 24 24" className="w-8 h-8 text-[#F9E40B] drop-shadow-[0_0_8px_rgba(249,228,11,0.8)] animate-pulse" fill="currentColor">
-                                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                                  <svg viewBox="0 0 24 24" className="w-10 h-10 drop-shadow-[0_0_8px_rgba(249,228,11,0.8)] animate-pulse z-10">
+                                    {/* Lado superior del lingote */}
+                                    <polygon points="6,9 18,9 21,14 3,14" fill="#F9E40B" stroke="#D9C40B" strokeWidth="1"/>
+                                    {/* Lado frontal del lingote */}
+                                    <polygon points="3,14 21,14 21,17 3,17" fill="#D9C40B" stroke="#A69508" strokeWidth="1"/>
+                                    {/* Reflejo de luz */}
+                                    <polygon points="5,14 19,14 17,10 7,10" fill="#FFF275" opacity="0.6" />
                                   </svg>
                                 )}
                               </div>
@@ -500,10 +511,11 @@
               </div>
 
               <div style={{ backgroundColor: COLORS.dark }} className="p-4 rounded-xl flex justify-between items-center gap-2 w-full max-w-[65vh]">
-                <PerceptionBadge active={perceptions.stench} icon={<Skull size={18} />} label="Hedor" color="text-red-400" />
-                <PerceptionBadge active={perceptions.breeze} icon={<Wind size={18} />} label="Brisa" color="text-blue-400" />
-                <PerceptionBadge active={perceptions.visited} icon={<Eye size={18} />} label="Visitado" color="text-green-400" />
-                <PerceptionBadge active={perceptions.wall} icon={<BoxSquare size={18} />} label="Muro" color="text-orange-400" />
+                <PerceptionBadge active={perceptions.stench} icon={<Skull size={18} />} label="Stench" color="text-red-400" />
+                <PerceptionBadge active={perceptions.breeze} icon={<Wind size={18} />} label="Breeze" color="text-blue-400" />
+                <PerceptionBadge active={perceptions.glitter} icon={<Sparkles size={18} />} label="Glitter" color="text-yellow-400" />
+                <PerceptionBadge active={perceptions.wall} icon={<BoxSquare size={18} />} label="Wall" color="text-orange-400" />
+                <PerceptionBadge active={perceptions.scream} icon={<Volume2 size={18} />} label="Scream" color="text-purple-400" />
               </div>
             </section>
 
