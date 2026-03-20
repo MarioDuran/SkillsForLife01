@@ -26,8 +26,8 @@
     import React, { useState, useEffect, useRef } from 'react';
     import { createRoot } from 'react-dom/client';
     import { 
-      Skull, Wind, Navigation, Hand, Play, Square as BoxSquare,
-      AlertCircle, Trophy, RefreshCw, Code, ArrowUp, ArrowDown,
+      Skull, Wind, Navigation, Hand, Play, Square,
+      Trophy, RefreshCw, Code, ArrowUp, ArrowDown,
       ArrowLeft, ArrowRight, Sword, Sparkles
     } from 'lucide-react';
 
@@ -235,6 +235,7 @@
         const frontY = y + DIRS[dir].dy;
         const isWall = frontX < 0 || frontX >= SIZE || frontY < 0 || frontY >= SIZE;
         
+        // Glitter detecta si hay oro enfrente
         const isFrontGold = !isWall && currentBoard[frontY][frontX].hasGold;
 
         setPerceptions({
@@ -507,7 +508,7 @@
                 <PerceptionBadge active={perceptions.stench} icon={<Skull size={18} />} label="Stench" color="text-red-400" />
                 <PerceptionBadge active={perceptions.breeze} icon={<Wind size={18} />} label="Breeze" color="text-blue-400" />
                 <PerceptionBadge active={perceptions.glitter} icon={<Sparkles size={18} />} label="Glitter" color="text-yellow-400" />
-                <PerceptionBadge active={perceptions.wall} icon={<BoxSquare size={18} />} label="Wall" color="text-orange-400" />
+                <PerceptionBadge active={perceptions.wall} icon={<Square size={18} />} label="Wall" color="text-orange-400" />
               </div>
             </section>
 
@@ -557,7 +558,7 @@
                           {!isAutoPlaying ? (
                             <button onClick={() => setIsAutoPlaying(true)} disabled={status !== 'playing'} style={{ backgroundColor: COLORS.accentCold }} className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#606C43] transition-colors disabled:opacity-50"><Play size={18} /> Auto</button>
                           ) : (
-                            <button onClick={() => setIsAutoPlaying(false)} className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 bg-red-800 hover:bg-red-700 transition-colors"><BoxSquare size={18} /> Detener</button>
+                            <button onClick={() => setIsAutoPlaying(false)} className="flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 bg-red-800 hover:bg-red-700 transition-colors"><Square size={18} /> Detener</button>
                           )}
                           <button onClick={executePythonStep} disabled={isAutoPlaying || status !== 'playing'} style={{ backgroundColor: COLORS.olive }} className="px-4 py-3 rounded-lg font-bold flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-50">Paso</button>
                         </div>
